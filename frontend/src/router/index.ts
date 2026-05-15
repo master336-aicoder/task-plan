@@ -1,20 +1,41 @@
-import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
+import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-router'
+import MainLayout from '@/layout/MainLayout.vue'
+import ProjectList from '@/views/ProjectList.vue'
+import WorkflowList from '@/views/WorkflowList.vue'
+import WorkflowDesign from '@/views/WorkflowDesign.vue'
+import ScheduleList from '@/views/ScheduleList.vue'
+import ExecutionList from '@/views/ExecutionList.vue'
+import DatasourceList from '@/views/DatasourceList.vue'
+import ServerList from '@/views/ServerList.vue'
+import FileList from '@/views/FileList.vue'
+import ClusterConfigList from '@/views/ClusterConfigList.vue'
+import TaskTypeList from '@/views/TaskTypeList.vue'
+import EnvVariableList from '@/views/EnvVariableList.vue'
 
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
-    component: () => import('@/layouts/MainLayout.vue'),
+    component: MainLayout,
     children: [
-      { path: '', name: 'Home', component: () => import('@/views/Home.vue') },
-      { path: '/tasks', name: 'Tasks', component: () => import('@/views/task/TaskList.vue') },
-      { path: '/schedules', name: 'Schedules', component: () => import('@/views/schedule/ScheduleList.vue') },
-      { path: '/instances', name: 'Instances', component: () => import('@/views/instance/InstanceList.vue') }
+      { path: '', redirect: '/projects' },
+      { path: '/projects', component: ProjectList },
+      { path: '/workflows', component: WorkflowList },
+      { path: '/workflow-design', component: WorkflowDesign },
+      { path: '/workflow-design/:id', component: WorkflowDesign },
+      { path: '/schedules', component: ScheduleList },
+      { path: '/executions', component: ExecutionList },
+      { path: '/datasources', component: DatasourceList },
+      { path: '/servers', component: ServerList },
+      { path: '/files', component: FileList },
+      { path: '/cluster-configs', component: ClusterConfigList },
+      { path: '/task-types', component: TaskTypeList },
+      { path: '/env-variables', component: EnvVariableList }
     ]
   }
 ]
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHashHistory(),
   routes
 })
 

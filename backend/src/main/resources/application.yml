@@ -11,6 +11,11 @@ spring:
     url: jdbc:mysql://localhost:3306/task_plan?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
     username: root
     password: root
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 50MB
+      max-request-size: 50MB
   jpa:
     hibernate:
       ddl-auto: update
@@ -19,23 +24,17 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
         format_sql: true
+  sql:
+    init:
+      mode: never
   quartz:
-    job-store-type: jdbc
-    jdbc:
-      initialize-schema: always
+    job-store-type: memory
     properties:
       org:
         quartz:
           scheduler:
             instanceName: TaskPlanScheduler
             instanceId: AUTO
-          jobStore:
-            class: org.springframework.scheduling.quartz.LocalDataSourceJobStore
-            driverDelegateClass: org.quartz.impl.jdbcjobstore.StdJDBCDelegate
-            useProperties: true
-            misfireThreshold: 60000
-            clusterCheckinInterval: 20000
-            isClustered: false
           threadPool:
             class: org.quartz.simpl.SimpleThreadPool
             threadCount: 10

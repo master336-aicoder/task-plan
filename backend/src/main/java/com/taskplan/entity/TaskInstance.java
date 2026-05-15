@@ -12,20 +12,23 @@ public class TaskInstance {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "task_id", nullable = false)
-    private Long taskId;
+    @Column(name = "project_id", nullable = false)
+    private Long projectId;
 
-    @Column(name = "schedule_id")
-    private Long scheduleId;
+    @Column(name = "process_instance_id", nullable = false)
+    private Long processInstanceId;
 
-    @Column(length = 100)
-    private String instanceKey;
+    @Column(name = "task_definition_id", nullable = false)
+    private Long taskDefinitionId;
 
-    @Column(length = 50, nullable = false)
-    private String status;
+    @Column(name = "task_name", length = 200)
+    private String taskName;
 
-    @Column(name = "trigger_type", length = 50)
-    private String triggerType;
+    @Column(name = "task_type", length = 50)
+    private String taskType;
+
+    @Column(name = "state", length = 50)
+    private String state = "SUBMITTED_SUCCESS";
 
     @Column(name = "start_time")
     private LocalDateTime startTime;
@@ -33,23 +36,41 @@ public class TaskInstance {
     @Column(name = "end_time")
     private LocalDateTime endTime;
 
-    @Column
+    @Column(name = "duration")
     private Long duration;
 
-    @Column(length = 2000)
-    private String result;
+    @Column(name = "retry_times")
+    private Integer retryTimes = 0;
 
-    @Column(length = 5000)
-    private String logs;
+    @Column(columnDefinition = "TEXT")
+    private String logPath;
 
-    @Column
-    private Integer retryCount = 0;
+    @Column(columnDefinition = "TEXT")
+    private String errorMsg;
 
-    @Column(name = "created_time")
-    private LocalDateTime createdTime;
+    @Column(columnDefinition = "TEXT")
+    private String executePath;
+
+    @Column(length = 100)
+    private String host;
+
+    @Column(length = 100)
+    private String owner;
+
+    @Column(name = "create_time")
+    private LocalDateTime createTime;
+
+    @Column(name = "update_time")
+    private LocalDateTime updateTime;
 
     @PrePersist
     protected void onCreate() {
-        createdTime = LocalDateTime.now();
+        createTime = LocalDateTime.now();
+        updateTime = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updateTime = LocalDateTime.now();
     }
 }
