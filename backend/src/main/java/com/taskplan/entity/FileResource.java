@@ -24,6 +24,12 @@ public class FileResource {
     @Column(length = 50)
     private String type;
 
+    @Column(name = "is_directory")
+    private Integer isDirectory = 0;
+
+    @Column(name = "parent_id")
+    private Long parentId;
+
     @Column
     private Integer version;
 
@@ -42,6 +48,9 @@ public class FileResource {
         updateTime = LocalDateTime.now();
         if (version == null) {
             version = 1;
+        }
+        if (isDirectory == null) {
+            isDirectory = 0;
         }
     }
 

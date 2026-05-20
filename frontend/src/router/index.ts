@@ -11,25 +11,43 @@ import FileList from '@/views/FileList.vue'
 import ClusterConfigList from '@/views/ClusterConfigList.vue'
 import TaskTypeList from '@/views/TaskTypeList.vue'
 import EnvVariableList from '@/views/EnvVariableList.vue'
+import Login from '@/views/Login.vue'
+import Dashboard from '@/views/Dashboard.vue'
+import UserList from '@/views/UserList.vue'
+import RoleList from '@/views/RoleList.vue'
+import MenuList from '@/views/MenuList.vue'
+import SysConfigList from '@/views/SysConfigList.vue'
 
 const routes: RouteRecordRaw[] = [
   {
+    path: '/login',
+    name: 'Login',
+    component: Login,
+    meta: { requiresAuth: false }
+  },
+  {
     path: '/',
     component: MainLayout,
+    meta: { requiresAuth: true },
     children: [
-      { path: '', redirect: '/projects' },
-      { path: '/projects', component: ProjectList },
-      { path: '/workflows', component: WorkflowList },
-      { path: '/workflow-design', component: WorkflowDesign },
-      { path: '/workflow-design/:id', component: WorkflowDesign },
-      { path: '/schedules', component: ScheduleList },
-      { path: '/executions', component: ExecutionList },
-      { path: '/datasources', component: DatasourceList },
-      { path: '/servers', component: ServerList },
-      { path: '/files', component: FileList },
-      { path: '/cluster-configs', component: ClusterConfigList },
-      { path: '/task-types', component: TaskTypeList },
-      { path: '/env-variables', component: EnvVariableList }
+      { path: '', redirect: '/dashboard' },
+      { path: '/dashboard', component: Dashboard, name: 'Dashboard' },
+      { path: '/projects', component: ProjectList, name: 'ProjectList' },
+      { path: '/workflows', component: WorkflowList, name: 'WorkflowList' },
+      { path: '/workflow-design', component: WorkflowDesign, name: 'WorkflowDesign' },
+      { path: '/workflow-design/:id', component: WorkflowDesign, name: 'WorkflowDesignEdit' },
+      { path: '/schedules', component: ScheduleList, name: 'ScheduleList' },
+      { path: '/executions', component: ExecutionList, name: 'ExecutionList' },
+      { path: '/datasources', component: DatasourceList, name: 'DatasourceList' },
+      { path: '/servers', component: ServerList, name: 'ServerList' },
+      { path: '/files', component: FileList, name: 'FileList' },
+      { path: '/cluster-configs', component: ClusterConfigList, name: 'ClusterConfigList' },
+      { path: '/task-types', component: TaskTypeList, name: 'TaskTypeList' },
+      { path: '/env-variables', component: EnvVariableList, name: 'EnvVariableList' },
+      { path: '/system/users', component: UserList, name: 'UserList' },
+      { path: '/system/roles', component: RoleList, name: 'RoleList' },
+      { path: '/system/menus', component: MenuList, name: 'MenuList' },
+      { path: '/system/config', component: SysConfigList, name: 'SysConfigList' }
     ]
   }
 ]
@@ -37,6 +55,19 @@ const routes: RouteRecordRaw[] = [
 const router = createRouter({
   history: createWebHashHistory(),
   routes
+})
+
+router.beforeEach((to, from, next) => {
+  const token = localStorage.getItem('token')
+  const requiresAuth = to.matched.some(record => record.meta.requiresAuth !== false)
+  
+  if (requiresAuth && !token) {
+    next('/login')
+  } else if (to.path === '/login' && token) {
+    next('/dashboard')
+  } else {
+    next()
+  }
 })
 
 export default router

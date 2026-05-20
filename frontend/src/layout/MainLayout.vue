@@ -5,60 +5,74 @@
         <h1 class="logo">任务计划系统</h1>
       </div>
       <el-menu :default-active="activeMenu" mode="vertical" class="sidebar-menu" :router="true">
+        <el-menu-item index="/dashboard">
+          <el-icon><Odometer /></el-icon>
+          <span>工作台</span>
+        </el-menu-item>
         <el-menu-item index="/projects">
-          <el-icon><Folder /></el-icon>
+          <el-icon><FolderOpened /></el-icon>
           <span>项目管理</span>
         </el-menu-item>
         <el-menu-item index="/workflows">
-          <el-icon><Share /></el-icon>
+          <el-icon><Connection /></el-icon>
           <span>工作流管理</span>
         </el-menu-item>
         <el-menu-item index="/schedules">
-          <el-icon><Timer /></el-icon>
+          <el-icon><Clock /></el-icon>
           <span>调度管理</span>
         </el-menu-item>
         <el-menu-item index="/executions">
-          <el-icon><VideoPlay /></el-icon>
+          <el-icon><List /></el-icon>
           <span>执行记录</span>
         </el-menu-item>
         <el-menu-item index="/datasources">
-          <el-icon><DataBoard /></el-icon>
+          <el-icon><Coin /></el-icon>
           <span>数据源管理</span>
         </el-menu-item>
         <el-menu-item index="/servers">
-          <el-icon><Connection /></el-icon>
+          <el-icon><Cpu /></el-icon>
           <span>服务器管理</span>
         </el-menu-item>
         <el-menu-item index="/files">
-          <el-icon><Document /></el-icon>
+          <el-icon><Folder /></el-icon>
           <span>文件管理</span>
         </el-menu-item>
         <el-menu-item index="/cluster-configs">
-          <el-icon><Cpu /></el-icon>
+          <el-icon><Grid /></el-icon>
           <span>集群配置</span>
         </el-menu-item>
         <el-menu-item index="/task-types">
-          <el-icon><EditPen /></el-icon>
+          <el-icon><Briefcase /></el-icon>
           <span>任务类型</span>
         </el-menu-item>
         <el-menu-item index="/env-variables">
           <el-icon><Setting /></el-icon>
           <span>环境变量</span>
         </el-menu-item>
+        <el-sub-menu index="system">
+          <template #title>
+            <el-icon><Tools /></el-icon>
+            <span>系统管理</span>
+          </template>
+          <el-menu-item index="/system/users">用户管理</el-menu-item>
+          <el-menu-item index="/system/roles">角色管理</el-menu-item>
+          <el-menu-item index="/system/menus">菜单管理</el-menu-item>
+          <el-menu-item index="/system/config">系统配置</el-menu-item>
+        </el-sub-menu>
       </el-menu>
     </aside>
     <main class="main-content">
       <header class="top-header">
         <div class="header-right">
-          <el-dropdown>
+          <el-dropdown @command="handleCommand">
             <span class="user-info">
               <el-icon class="mr-2"><User /></el-icon>
-              管理员
+              {{ userInfo.realName || userInfo.username }}
             </span>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item>个人设置</el-dropdown-item>
-                <el-dropdown-item>退出登录</el-dropdown-item>
+                <el-dropdown-item command="profile">个人设置</el-dropdown-item>
+                <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -76,19 +90,51 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { Folder, Share, Timer, VideoPlay, User, DataBoard, Connection, Document, Cpu, EditPen, Setting } from '@element-plus/icons-vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import { Odometer, FolderOpened, Connection, Clock, List, Coin, Cpu, Folder, Grid, Briefcase, Setting, Tools, User } from '@element-plus/icons-vue'
+import { authApi } from '@/api'
 
-const activeMenu = ref('/projects')
+const router = useRouter()
+const activeMenu = ref('/dashboard')
+
+const userInfo = reactive({
+  userId: 0,
+  username: '',
+  realName: '',
+  roles: [] as number[]
+})
 
 const updateActiveMenu = () => {
-  const path = window.location.hash.replace('#', '') || '/projects'
-  activeMenu.value = path.split('/')[1] ? `/${path.split('/')[1]}` : '/projects'
+  const path = window.location.hash.replace('#', '') || '/dashboard'
+  activeMenu.value = path.split('/').slice(0, 2).join('/') || '/dashboard'
+}
+
+const handleCommand = async (command: string) => {
+  if (command === 'logout') {
+    try {
+      await authApi.logout()
+    } catch (error) {
+      console.error('Logout failed:', error)
+    }
+    localStorage.removeItem('token')
+    localStorage.removeItem('userInfo')
+    ElMessage.success('已退出登录')
+    router.push('/login')
+  } else if (command === 'profile') {
+    ElMessage.info('个人设置功能开发中')
+  }
 }
 
 onMounted(() => {
   updateActiveMenu()
   window.addEventListener('hashchange', updateActiveMenu)
+  
+  const stored = localStorage.getItem('userInfo')
+  if (stored) {
+    Object.assign(userInfo, JSON.parse(stored))
+  }
 })
 
 onUnmounted(() => {
@@ -140,6 +186,15 @@ onUnmounted(() => {
 
 .sidebar-menu :deep(.el-menu-item.is-active) {
   background: #1ab394;
+  color: #fff;
+}
+
+.sidebar-menu :deep(.el-sub-menu__title) {
+  color: #a7b1c2;
+}
+
+.sidebar-menu :deep(.el-sub-menu__title:hover) {
+  background: #1f2d3d;
   color: #fff;
 }
 

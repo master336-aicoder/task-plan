@@ -3,7 +3,8 @@
     <div class="page-header">
       <h2 class="text-xl font-bold mb-3">调度管理</h2>
       <div class="flex gap-4 flex-wrap">
-        <el-select v-model="selectedProjectId" placeholder="选择项目" @change="loadSchedules" style="width: 200px">
+        <el-select v-model="selectedProjectId" placeholder="选择项目" @change="loadWorkflows" style="width: 200px">
+          <el-option :label="'全部项目'" :value="undefined" />
           <el-option v-for="project in projects" :key="project.id" :label="project.name" :value="project.id" />
         </el-select>
         <el-select v-model="selectedWorkflowId" placeholder="选择工作流" @change="loadSchedules" style="width: 250px">
@@ -145,27 +146,31 @@ const loadProjects = async () => {
 }
 
 const loadWorkflows = async () => {
-  if (!selectedProjectId.value) return
   try {
-    const res = await workflowApi.listByProject(selectedProjectId.value)
-    workflows.value = res.data || res || []
+    if (selectedProjectId.value) {
+      const data = await workflowApi.listByProject(selectedProjectId.value)
+      workflows.value = data || []
+    } else {
+      const resultData = await workflowApi.list({ page: 1, size: 100 })
+      workflows.value = resultData.data || []
+    }
+    selectedWorkflowId.value = undefined
+    loadSchedules()
   } catch (error) {
     console.error('加载工作流列表失败', error)
   }
 }
 
 const loadSchedules = async () => {
-  if (!selectedProjectId.value) return
-  
   loading.value = true
   try {
-    const res = await scheduleApi.list({
-      projectId: selectedProjectId.value,
+    const resultData = await scheduleApi.list({
+      projectId: selectedProjectId.value || undefined,
       processDefinitionId: selectedWorkflowId.value || undefined,
       page: currentPage.value,
       size: pageSize.value
     })
-    const data = res.data?.data || []
+    const data = resultData.data || []
     
     const workflowMap = new Map()
     workflows.value.forEach(w => workflowMap.set(w.id, w.name))
@@ -174,7 +179,7 @@ const loadSchedules = async () => {
       ...s,
       processDefinitionName: workflowMap.get(s.processDefinitionId) || '未知'
     }))
-    total.value = res.data?.total || 0
+    total.value = resultData.total || 0
   } catch (error) {
     ElMessage.error('加载调度列表失败')
   } finally {
@@ -190,7 +195,7 @@ const showForm = (schedule?: ProcessSchedule) => {
     form.value = {
       projectId: selectedProjectId.value || 1,
       processDefinitionId: 0,
-      cronExpression: '',
+      cronExpression: '0 0 * * * ?',
       startTime: '',
       endTime: '',
       timezone: 'Asia/Shanghai',
@@ -207,11 +212,20 @@ const submitForm = async () => {
 
   submitting.value = true
   try {
+    const submitData = { ...form.value }
+    
+    if (submitData.startTime) {
+      submitData.startTime = formatDateTime(submitData.startTime)
+    }
+    if (submitData.endTime) {
+      submitData.endTime = formatDateTime(submitData.endTime)
+    }
+
     if (editingSchedule.value?.id) {
-      await scheduleApi.update(editingSchedule.value.id, form.value)
+      await scheduleApi.update(editingSchedule.value.id, submitData)
       ElMessage.success('更新成功')
     } else {
-      await scheduleApi.create(form.value)
+      await scheduleApi.create(submitData)
       ElMessage.success('创建成功')
     }
     formVisible.value = false
@@ -221,6 +235,19 @@ const submitForm = async () => {
   } finally {
     submitting.value = false
   }
+}
+
+const formatDateTime = (date: any): string | null => {
+  if (!date) return null
+  if (date instanceof Date) {
+    return date.toISOString().replace('T', ' ').substring(0, 19)
+  } else if (typeof date === 'string') {
+    if (date.includes('T')) {
+      return date.replace('T', ' ').substring(0, 19)
+    }
+    return date
+  }
+  return date
 }
 
 const enableSchedule = async (schedule: any) => {

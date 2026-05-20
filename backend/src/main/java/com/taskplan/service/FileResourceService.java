@@ -10,7 +10,17 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -43,8 +53,12 @@ public class FileResourceService {
 
     @Transactional
     public void deleteFile(Long id) {
-        if (!fileResourceRepository.existsById(id)) {
-            throw new BusinessException("文件不存在");
+        FileResource file = getFile(id);
+        if (file.getIsDirectory() == 1) {
+            List<FileResource> children = fileResourceRepository.findByParentId(id);
+            if (!children.isEmpty()) {
+                throw new BusinessException("请先删除目录内的文件和子目录");
+            }
         }
         fileResourceRepository.deleteById(id);
     }
@@ -70,5 +84,109 @@ public class FileResourceService {
 
     public List<FileResource> listAll() {
         return fileResourceRepository.findAll();
+    }
+
+    @Transactional
+    public FileResource createDirectory(String name, Long parentId) {
+        if (name == null || name.trim().isEmpty()) {
+            throw new BusinessException("目录名不能为空");
+        }
+        
+        FileResource existing = fileResourceRepository.findByNameAndParentId(name, parentId);
+        if (existing != null) {
+            throw new BusinessException("目录已存在");
+        }
+        
+        FileResource directory = new FileResource();
+        directory.setName(name);
+        directory.setIsDirectory(1);
+        directory.setParentId(parentId);
+        directory.setSize(0L);
+        directory.setType("DIRECTORY");
+        
+        return fileResourceRepository.save(directory);
+    }
+
+    public List<FileResource> listDirectory(Long parentId) {
+        return fileResourceRepository.findByParentIdOrderByNameAsc(parentId);
+    }
+
+    public List<FileResource> listDirectories(Long parentId) {
+        return fileResourceRepository.findDirectoriesByParentId(parentId);
+    }
+
+    public List<FileResource> listFilesInDirectory(Long parentId) {
+        return fileResourceRepository.findFilesByParentId(parentId);
+    }
+
+    public Map<String, Object> getDirectoryTree(Long parentId) {
+        Map<String, Object> result = new HashMap<>();
+        List<FileResource> directories = listDirectories(parentId);
+        List<FileResource> files = listFilesInDirectory(parentId);
+        
+        result.put("directories", directories);
+        result.put("files", files);
+        return result;
+    }
+
+    public String getFileContent(Long id) {
+        FileResource file = getFile(id);
+        if (file.getIsDirectory() == 1) {
+            throw new BusinessException("不能读取目录内容");
+        }
+        
+        try {
+            String pathStr = file.getPath();
+            log.info("尝试读取文件[{}]: {}", file.getName(), pathStr);
+            
+            Path filePath = Paths.get(pathStr);
+            
+            if (!filePath.isAbsolute()) {
+                String backendPath = System.getProperty("user.dir");
+                filePath = Paths.get(backendPath, pathStr);
+                log.info("相对路径转换为绝对路径: {}", filePath.toAbsolutePath());
+            }
+            
+            log.info("文件路径(绝对路径): {}", filePath.toAbsolutePath());
+            log.info("文件是否存在: {}", Files.exists(filePath));
+            
+            if (!Files.exists(filePath)) {
+                throw new BusinessException("文件不存在: " + filePath.toAbsolutePath());
+            }
+            
+            StringBuilder content = new StringBuilder();
+            try (BufferedReader reader = Files.newBufferedReader(filePath, StandardCharsets.UTF_8)) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    content.append(line).append("\n");
+                }
+            }
+            log.info("文件读取成功，内容长度: {}", content.length());
+            return content.toString();
+        } catch (IOException e) {
+            log.error("读取文件内容失败", e);
+            throw new RuntimeException("读取文件内容失败: " + e.getMessage());
+        }
+    }
+
+    @Transactional
+    public void updateFileContent(Long id, String content) {
+        FileResource file = getFile(id);
+        if (file.getIsDirectory() == 1) {
+            throw new BusinessException("不能编辑目录");
+        }
+        
+        try {
+            Path filePath = Paths.get(file.getPath());
+            try (BufferedWriter writer = Files.newBufferedWriter(filePath, StandardCharsets.UTF_8)) {
+                writer.write(content);
+            }
+            file.setSize((long) content.getBytes().length);
+            fileResourceRepository.save(file);
+            log.info("文件内容更新成功: ID={}", id);
+        } catch (IOException e) {
+            log.error("写入文件内容失败", e);
+            throw new RuntimeException("写入文件内容失败: " + e.getMessage());
+        }
     }
 }

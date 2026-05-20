@@ -41,16 +41,27 @@ public class ProcessDefinitionService {
     @Transactional
     public ProcessDefinition createProcessWithNodes(Long projectId, String name, String releaseState, 
             List<Map<String, Object>> taskNodes, List<Map<String, Object>> connections) {
+        return saveProcessWithNodes(null, projectId, name, releaseState, taskNodes, connections);
+    }
+
+    @Transactional
+    public ProcessDefinition saveProcessWithNodes(Long id, Long projectId, String name, String releaseState, 
+            List<Map<String, Object>> taskNodes, List<Map<String, Object>> connections) {
         validateProcessInput(projectId, name);
         
-        ProcessDefinition process = processDefinitionRepository.findByProjectIdAndName(projectId, name);
+        ProcessDefinition process;
         
-        if (process == null) {
-            process = new ProcessDefinition();
-            process.setProjectId(projectId);
+        if (id != null) {
+            process = getProcess(id);
             process.setName(name);
+            process.setProjectId(projectId);
         } else {
-            log.info("Updating existing workflow: {}", name);
+            process = processDefinitionRepository.findByProjectIdAndName(projectId, name);
+            if (process == null) {
+                process = new ProcessDefinition();
+                process.setProjectId(projectId);
+                process.setName(name);
+            }
         }
         
         process.setReleaseState(releaseState);

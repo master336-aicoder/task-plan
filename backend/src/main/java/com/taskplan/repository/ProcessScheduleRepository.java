@@ -13,5 +13,6 @@ public interface ProcessScheduleRepository extends JpaRepository<ProcessSchedule
     Page<ProcessSchedule> findByProjectId(Long projectId, Pageable pageable);
     Page<ProcessSchedule> findByProjectIdAndProcessDefinitionId(Long projectId, Long processDefinitionId, Pageable pageable);
     List<ProcessSchedule> findByProcessDefinitionId(Long processDefinitionId);
+    Page<ProcessSchedule> findByProcessDefinitionId(Long processDefinitionId, Pageable pageable);
     List<ProcessSchedule> findByIsValid(Integer isValid);
 }

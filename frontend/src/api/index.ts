@@ -235,6 +235,8 @@ export interface FileResource {
   type?: string
   version?: number
   projectId?: number
+  isDirectory?: number
+  parentId?: number | null
   createTime?: string
   updateTime?: string
 }
@@ -291,6 +293,7 @@ export const fileApi = {
   listAll: () => request.get<FileResource[]>('/files/all'),
   listByType: (type: string) => request.get<FileResource[]>(`/files/type/${type}`),
   get: (id: number) => request.get<FileResource>(`/files/${id}`),
+  getDirectory: (parentId?: number | null) => request.get('/files/directory', { params: { parentId } }),
   upload: (file: FormData) => request.post<FileResource>('/files/upload', file),
   delete: (id: number) => request.delete(`/files/${id}`)
 }
@@ -333,4 +336,94 @@ export const envVariableApi = {
   create: (data: EnvVariable) => request.post<EnvVariable>('/env-variables', data),
   update: (id: number, data: EnvVariable) => request.put<EnvVariable>(`/env-variables/${id}`, data),
   delete: (id: number) => request.delete(`/env-variables/${id}`)
+}
+
+export interface LoginForm {
+  username: string
+  password: string
+}
+
+export interface LoginResult {
+  token: string
+  userId: number
+  username: string
+  realName: string
+  roles: number[]
+  menus: any[]
+}
+
+export interface SysUser {
+  id?: number
+  username: string
+  password?: string
+  realName?: string
+  email?: string
+  phone?: string
+  avatar?: string
+  status?: number
+  createTime?: string
+  updateTime?: string
+}
+
+export interface SysRole {
+  id?: number
+  roleCode: string
+  roleName: string
+  description?: string
+  status?: number
+  createTime?: string
+  updateTime?: string
+}
+
+export interface SysMenu {
+  id?: number
+  menuName: string
+  menuCode: string
+  menuType: string
+  path: string
+  component?: string
+  parentId?: number
+  icon?: string
+  sortOrder?: number
+  status?: number
+  permission?: string
+  createTime?: string
+  updateTime?: string
+  children?: SysMenu[]
+}
+
+export const authApi = {
+  login: (data: LoginForm) => request.post<LoginResult>('/auth/login', data),
+  logout: () => request.post('/auth/logout'),
+  getUserInfo: () => request.get('/auth/userinfo')
+}
+
+export const userApi = {
+  list: () => request.get<SysUser[]>('/users'),
+  get: (id: number) => request.get<SysUser>(`/users/${id}`),
+  create: (data: SysUser) => request.post<SysUser>('/users', data),
+  update: (id: number, data: SysUser) => request.put<SysUser>(`/users/${id}`, data),
+  delete: (id: number) => request.delete(`/users/${id}`),
+  getRoles: (id: number) => request.get<SysRole[]>(`/users/${id}/roles`),
+  assignRoles: (id: number, roleIds: number[]) => request.post(`/users/${id}/roles`, roleIds)
+}
+
+export const roleApi = {
+  list: () => request.get<SysRole[]>('/roles'),
+  listActive: () => request.get<SysRole[]>('/roles/active'),
+  get: (id: number) => request.get<SysRole>(`/roles/${id}`),
+  create: (data: SysRole) => request.post<SysRole>('/roles', data),
+  update: (id: number, data: SysRole) => request.put<SysRole>(`/roles/${id}`, data),
+  delete: (id: number) => request.delete(`/roles/${id}`),
+  getMenus: (id: number) => request.get<SysMenu[]>(`/roles/${id}/menus`),
+  assignMenus: (id: number, menuIds: number[]) => request.post(`/roles/${id}/menus`, menuIds)
+}
+
+export const menuApi = {
+  list: () => request.get<SysMenu[]>('/menus'),
+  getTree: () => request.get<SysMenu[]>('/menus/tree'),
+  get: (id: number) => request.get<SysMenu>(`/menus/${id}`),
+  create: (data: SysMenu) => request.post<SysMenu>('/menus', data),
+  update: (id: number, data: SysMenu) => request.put<SysMenu>(`/menus/${id}`, data),
+  delete: (id: number) => request.delete(`/menus/${id}`)
 }

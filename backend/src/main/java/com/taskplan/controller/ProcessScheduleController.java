@@ -23,7 +23,7 @@ public class ProcessScheduleController {
 
     @GetMapping
     public Result<Map<String, Object>> listSchedules(
-            @RequestParam Long projectId,
+            @RequestParam(required = false) Long projectId,
             @RequestParam(required = false) Long processDefinitionId,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {

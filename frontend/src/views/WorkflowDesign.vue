@@ -154,7 +154,7 @@
               </el-select>
             </el-form-item>
             <el-form-item label="SQL语句">
-              <el-input v-model="detailForm.sql" type="textarea" :rows="4" />
+              <el-input v-model="detailForm.sql" type="textarea" :rows="5" :placeholder="sqlPlaceholder" />
             </el-form-item>
           </template>
 
@@ -165,14 +165,29 @@
                 <el-option v-for="server in servers" :key="server.id" :label="server.name" :value="server.id" />
               </el-select>
             </el-form-item>
-            <el-form-item label="脚本文件">
-              <el-select v-model="detailForm.fileId" class="w-full">
-                <el-option label="请选择文件" :value="''" />
-                <el-option v-for="file in files" :key="file.id" :label="file.name" :value="file.id" />
-              </el-select>
+            <el-form-item label="脚本来源">
+              <el-radio-group v-model="scriptSource" class="block">
+                <el-radio :label="'file'">脚本文件</el-radio>
+                <el-radio :label="'content'">脚本内容</el-radio>
+              </el-radio-group>
             </el-form-item>
-            <el-form-item label="脚本内容">
-              <el-input v-model="detailForm.script" type="textarea" :rows="4" />
+            <el-form-item v-if="scriptSource === 'file'" label="脚本文件">
+              <el-input 
+                :value="selectedFileName" 
+                placeholder="请选择脚本文件" 
+                readonly 
+                class="w-full cursor-pointer"
+                @click="showFileSelector = true"
+              />
+              <span class="file-select-hint">点击选择文件</span>
+            </el-form-item>
+            <el-form-item v-if="scriptSource === 'content'" label="脚本内容">
+              <el-input 
+                v-model="detailForm.script" 
+                type="textarea" 
+                :rows="6" 
+                :placeholder="scriptPlaceholder"
+              />
             </el-form-item>
             <el-form-item label="任务类型配置">
               <el-select v-model="detailForm.taskTypeId" class="w-full">
@@ -190,10 +205,10 @@
               </el-select>
             </el-form-item>
             <el-form-item label="主类/程序路径">
-              <el-input v-model="detailForm.mainClass" />
+              <el-input v-model="detailForm.mainClass" placeholder="例如：com.example.MainClass" />
             </el-form-item>
             <el-form-item label="程序参数">
-              <el-input v-model="detailForm.programArgs" />
+              <el-input v-model="detailForm.programArgs" type="textarea" :rows="3" :placeholder="programArgsPlaceholder" />
             </el-form-item>
             <el-form-item label="JAR包">
               <el-select v-model="detailForm.jarFileId" class="w-full">
@@ -205,7 +220,7 @@
 
           <template v-if="showHttpField">
             <el-form-item label="请求URL">
-              <el-input v-model="detailForm.httpUrl" />
+              <el-input v-model="detailForm.httpUrl" placeholder="例如：http://api.example.com/data" />
             </el-form-item>
             <el-form-item label="请求方法">
               <el-select v-model="detailForm.httpMethod" class="w-full">
@@ -216,12 +231,12 @@
               </el-select>
             </el-form-item>
             <el-form-item label="请求体">
-              <el-input v-model="detailForm.httpBody" type="textarea" :rows="3" />
+              <el-input v-model="detailForm.httpBody" type="textarea" :rows="4" :placeholder="httpBodyPlaceholder" />
             </el-form-item>
           </template>
 
           <el-form-item label="自定义参数">
-            <el-input v-model="detailForm.params" type="textarea" :rows="2" placeholder="JSON格式参数" />
+            <el-input v-model="detailForm.params" type="textarea" :rows="3" :placeholder="paramsPlaceholder" />
           </el-form-item>
           <el-form-item label="失败重试次数">
             <el-input-number v-model="detailForm.failRetryTimes" :min="0" :max="10" />
@@ -252,6 +267,60 @@
         </div>
       </div>
     </div>
+
+    <el-dialog title="选择脚本文件" v-model="showFileSelector" width="700px" top="5vh">
+      <div class="file-selector">
+        <div class="file-selector-header">
+          <el-breadcrumb separator="/">
+            <el-breadcrumb-item v-for="(item, index) in fileSelectorPath" :key="item.id || 'root'">
+              <span class="breadcrumb-link" @click="navigateFileSelectorPath(item, index)">
+                {{ item.name || '根目录' }}
+              </span>
+            </el-breadcrumb-item>
+          </el-breadcrumb>
+        </div>
+        <div class="file-selector-body">
+          <div class="file-tree">
+            <el-tree
+              :data="fileSelectorTree"
+              :props="{ label: 'name', children: 'children' }"
+              :default-expand-all="true"
+              @node-click="handleFileTreeNodeClick"
+            >
+              <template #default="{ node, data }">
+                <span v-if="data.isDirectory === 1" class="tree-directory">
+                  <el-icon class="mr-1"><Folder /></el-icon>
+                  {{ node.label }}
+                </span>
+                <span v-else class="tree-file" :class="{ 'tree-file-selected': selectedFileId === data.id }">
+                  <el-icon class="mr-1"><Document /></el-icon>
+                  {{ node.label }}
+                </span>
+              </template>
+            </el-tree>
+          </div>
+          <div class="file-list-panel">
+            <div class="file-grid">
+              <div
+                v-for="file in fileSelectorFiles"
+                :key="file.id"
+                class="file-item"
+                :class="{ selected: selectedFileId === file.id }"
+                @click="selectFile(file)"
+              >
+                <el-icon v-if="file.isDirectory === 1" class="file-icon directory-icon"><Folder /></el-icon>
+                <el-icon v-else class="file-icon file-icon-script"><Document /></el-icon>
+                <span class="file-name">{{ file.name }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="file-selector-footer">
+          <el-button @click="showFileSelector = false">取消</el-button>
+          <el-button type="primary" @click="confirmFileSelection" :disabled="!selectedFileId">确认选择</el-button>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -259,7 +328,7 @@
 import { ref, onMounted, reactive, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { DocumentChecked, Top, Back, VideoPlay } from '@element-plus/icons-vue'
+import { DocumentChecked, Top, Back, VideoPlay, Folder, Document } from '@element-plus/icons-vue'
 import { taskTypes, workflowApi, projectApi, datasourceApi, serverApi, fileApi, clusterConfigApi, taskTypeApi, envVariableApi, type TaskDefinition, type Project, type Datasource, type ServerNode, type FileResource, type ClusterConfig, type TaskTypeConfig, type EnvVariable } from '@/api'
 
 interface CanvasNode {
@@ -329,6 +398,13 @@ const dragOffset = reactive({ x: 0, y: 0 })
 
 const workflowId = ref<number | null>(null)
 const projectId = ref<number>(0)
+const scriptSource = ref<'file' | 'content'>('content')
+
+const sqlPlaceholder = '请输入SQL语句，支持多行，例如：\nSELECT * FROM users\nWHERE status = 1\nORDER BY create_time DESC\nLIMIT 100'
+const scriptPlaceholder = '请输入脚本内容，例如：\n#!/bin/bash\necho "Hello World"\ncd /data\n./process.sh'
+const programArgsPlaceholder = '多个参数用空格或换行分隔，例如：\n--input /data/input\n--output /data/output\n--mode batch'
+const httpBodyPlaceholder = 'JSON格式请求体，例如：\n{\n  "name": "test",\n  "value": 123\n}'
+const paramsPlaceholder = 'JSON格式参数，例如：\n{\n  "key1": "value1",\n  "key2": 123\n}'
 
 const projects = ref<Project[]>([])
 const datasources = ref<Datasource[]>([])
@@ -339,6 +415,135 @@ const taskTypesConfig = ref<TaskTypeConfig[]>([])
 const envVariables = ref<EnvVariable[]>([])
 
 const jarFiles = computed(() => files.value.filter(f => f.type === 'JAR'))
+
+const showFileSelector = ref(false)
+const selectedFileId = ref<number | null>(null)
+const selectedFileName = ref('')
+const fileSelectorParentId = ref<number | null>(null)
+const fileSelectorPath = ref<any[]>([{ id: null, name: '根目录', parentId: null }])
+const fileSelectorFiles = ref<FileResource[]>([])
+const fileSelectorTree = ref<any[]>([])
+
+const loadFileSelectorFiles = async () => {
+  try {
+    const response = await fileApi.getDirectory(fileSelectorParentId.value)
+    const data = response?.data || response || {}
+    fileSelectorFiles.value = [...(data.directories || []), ...(data.files || [])]
+  } catch (error) {
+    console.error('加载文件列表失败', error)
+  }
+}
+
+const loadFileSelectorTree = async () => {
+  try {
+    const response = await fileApi.listAll()
+    const allFiles = response.data || response || []
+    fileSelectorTree.value = buildFileTree(allFiles, null)
+  } catch (error) {
+    console.error('加载文件树失败', error)
+  }
+}
+
+const buildFileTree = (files: FileResource[], parentId: number | null): any[] => {
+  return files
+    .filter(f => f.parentId === parentId)
+    .map(f => ({
+      id: f.id,
+      name: f.name,
+      isDirectory: f.isDirectory,
+      parentId: f.parentId,
+      children: f.isDirectory === 1 ? buildFileTree(files, f.id!) : []
+    }))
+    .sort((a, b) => {
+      if (a.isDirectory !== b.isDirectory) {
+        return a.isDirectory === 1 ? -1 : 1
+      }
+      return a.name.localeCompare(b.name)
+    })
+}
+
+const selectFile = (file: FileResource) => {
+  if (file.isDirectory === 1) {
+    fileSelectorParentId.value = file.id
+    loadFileSelectorFiles()
+    fileSelectorPath.value.push({
+      id: file.id,
+      name: file.name,
+      parentId: file.parentId
+    })
+  } else {
+    selectedFileId.value = file.id
+    selectedFileName.value = file.name
+  }
+}
+
+const handleFileTreeNodeClick = (data: any) => {
+  if (data.isDirectory === 1) {
+    fileSelectorParentId.value = data.id
+    loadFileSelectorFiles()
+    fileSelectorPath.value = buildPathFromTree(data)
+  } else {
+    selectedFileId.value = data.id
+    selectedFileName.value = data.name
+  }
+}
+
+const buildPathFromTree = (data: any): any[] => {
+  const path: any[] = []
+  let current = data
+  while (current) {
+    path.unshift({ id: current.id, name: current.name, parentId: current.parentId })
+    if (current.parentId !== null) {
+      current = findParentNode(fileSelectorTree.value, current.parentId)
+    } else {
+      current = null
+    }
+  }
+  path.unshift({ id: null, name: '根目录', parentId: null })
+  return path
+}
+
+const findParentNode = (tree: any[], parentId: number): any => {
+  for (const node of tree) {
+    if (node.id === parentId) {
+      return node
+    }
+    if (node.children && node.children.length > 0) {
+      const found = findParentNode(node.children, parentId)
+      if (found) return found
+    }
+  }
+  return null
+}
+
+const navigateFileSelectorPath = (item: any, index: number) => {
+  fileSelectorParentId.value = item.id
+  fileSelectorPath.value = fileSelectorPath.value.slice(0, index + 1)
+  loadFileSelectorFiles()
+}
+
+const confirmFileSelection = () => {
+  if (selectedFileId.value) {
+    detailForm.fileId = selectedFileId.value
+    showFileSelector.value = false
+  }
+}
+
+watch(showFileSelector, (val) => {
+  if (val) {
+    selectedFileId.value = detailForm.fileId || null
+    if (selectedFileId.value) {
+      const file = files.value.find(f => f.id === selectedFileId.value)
+      selectedFileName.value = file?.name || ''
+    } else {
+      selectedFileName.value = ''
+    }
+    fileSelectorParentId.value = null
+    fileSelectorPath.value = [{ id: null, name: '根目录', parentId: null }]
+    loadFileSelectorFiles()
+    loadFileSelectorTree()
+  }
+})
 
 const detailForm = reactive({
   name: '',
@@ -487,6 +692,7 @@ const handleDrop = (event: DragEvent) => {
 const openTaskDetail = (node: CanvasNode) => {
   detailNode.value = node
   Object.assign(detailForm, node)
+  scriptSource.value = node.fileId ? 'file' : 'content'
 }
 
 const closeDetail = () => {
@@ -503,6 +709,9 @@ const handleTaskTypeChange = () => {
     detailForm.fileId = null
     detailForm.script = ''
     detailForm.taskTypeId = null
+    scriptSource.value = 'content'
+  } else {
+    scriptSource.value = detailForm.fileId ? 'file' : 'content'
   }
   if (!['SPARK', 'FLINK', 'MAPREDUCE', 'JAVA'].includes(detailForm.taskType)) {
     detailForm.clusterConfigId = null
@@ -789,6 +998,7 @@ const validateAndRelease = async () => {
 
 const saveWorkflow = async (release: boolean) => {
   const workflowData = {
+    id: workflowId.value || undefined,
     name: workflowName.value,
     projectId: projectId.value,
     releaseState: release ? 'ONLINE' : 'OFFLINE',
@@ -1183,5 +1393,126 @@ onMounted(() => {
   border-top: 1px solid #e8e8e8;
   display: flex;
   justify-content: flex-end;
+}
+
+.file-select-hint {
+  font-size: 12px;
+  color: #909399;
+  margin-left: 8px;
+}
+
+.file-selector {
+  height: 450px;
+  display: flex;
+  flex-direction: column;
+}
+
+.file-selector-header {
+  padding: 12px 16px;
+  background: #f5f7fa;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.file-selector-header .breadcrumb-link {
+  cursor: pointer;
+  color: #409eff;
+}
+
+.file-selector-header .breadcrumb-link:hover {
+  text-decoration: underline;
+}
+
+.file-selector-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.file-tree {
+  width: 220px;
+  border-right: 1px solid #e8e8e8;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.tree-directory {
+  display: flex;
+  align-items: center;
+  color: #eab308;
+}
+
+.tree-file {
+  display: flex;
+  align-items: center;
+  color: #3b82f6;
+}
+
+.tree-file-selected {
+  background: #e8f4fd;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.file-list-panel {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.file-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.file-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.file-item:hover {
+  background: #f5f7fa;
+  border-color: #e8e8e8;
+}
+
+.file-item.selected {
+  background: #e8f4fd;
+  border-color: #409eff;
+}
+
+.file-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.directory-icon {
+  color: #eab308;
+}
+
+.file-icon-script {
+  color: #3b82f6;
+}
+
+.file-name {
+  font-size: 12px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.file-selector-footer {
+  padding: 12px 16px;
+  border-top: 1px solid #e8e8e8;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
 }
 </style>

@@ -6,6 +6,11 @@ spring:
     name: task-plan
   profiles:
     active: dev
+
+app:
+  log:
+    schedule-path: ./logs/schedule
+    task-path: ./logs/task
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/task_plan?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai

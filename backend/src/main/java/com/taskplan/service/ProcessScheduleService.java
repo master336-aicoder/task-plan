@@ -27,21 +27,50 @@ public class ProcessScheduleService {
 
     @Transactional
     public ProcessSchedule updateSchedule(Long id, ProcessSchedule schedule) {
-        ProcessSchedule existing = getSchedule(id);
-        
-        if (schedule.getCronExpression() != null) existing.setCronExpression(schedule.getCronExpression());
-        if (schedule.getStartTime() != null) existing.setStartTime(schedule.getStartTime());
-        if (schedule.getEndTime() != null) existing.setEndTime(schedule.getEndTime());
-        if (schedule.getTimezone() != null) existing.setTimezone(schedule.getTimezone());
-        if (schedule.getDelayTime() != null) existing.setDelayTime(schedule.getDelayTime());
-        if (schedule.getWarningType() != null) existing.setWarningType(schedule.getWarningType());
-        if (schedule.getWarningGroupId() != null) existing.setWarningGroupId(schedule.getWarningGroupId());
-        if (schedule.getFailRetryTimes() != null) existing.setFailRetryTimes(schedule.getFailRetryTimes());
-        if (schedule.getFailRetryInterval() != null) existing.setFailRetryInterval(schedule.getFailRetryInterval());
-        if (schedule.getIsValid() != null) existing.setIsValid(schedule.getIsValid());
-        if (schedule.getOwner() != null) existing.setOwner(schedule.getOwner());
-        
-        return processScheduleRepository.save(existing);
+        log.info("更新调度: id={}, processDefinitionId={}, cronExpression={}", 
+                 id, schedule.getProcessDefinitionId(), schedule.getCronExpression());
+        try {
+            ProcessSchedule existing = getSchedule(id);
+            log.info("找到现有调度: id={}, projectId={}, processDefinitionId={}", 
+                     existing.getId(), existing.getProjectId(), existing.getProcessDefinitionId());
+            
+            if (schedule.getCronExpression() != null) {
+                existing.setCronExpression(schedule.getCronExpression());
+                log.info("更新 cronExpression: {}", schedule.getCronExpression());
+            }
+            if (schedule.getStartTime() != null) {
+                existing.setStartTime(schedule.getStartTime());
+                log.info("更新 startTime: {}", schedule.getStartTime());
+            }
+            if (schedule.getEndTime() != null) {
+                existing.setEndTime(schedule.getEndTime());
+                log.info("更新 endTime: {}", schedule.getEndTime());
+            }
+            if (schedule.getTimezone() != null) {
+                existing.setTimezone(schedule.getTimezone());
+                log.info("更新 timezone: {}", schedule.getTimezone());
+            }
+            if (schedule.getDelayTime() != null) existing.setDelayTime(schedule.getDelayTime());
+            if (schedule.getWarningType() != null) existing.setWarningType(schedule.getWarningType());
+            if (schedule.getWarningGroupId() != null) existing.setWarningGroupId(schedule.getWarningGroupId());
+            if (schedule.getFailRetryTimes() != null) existing.setFailRetryTimes(schedule.getFailRetryTimes());
+            if (schedule.getFailRetryInterval() != null) existing.setFailRetryInterval(schedule.getFailRetryInterval());
+            if (schedule.getIsValid() != null) {
+                existing.setIsValid(schedule.getIsValid());
+                log.info("更新 isValid: {}", schedule.getIsValid());
+            }
+            if (schedule.getOwner() != null) {
+                existing.setOwner(schedule.getOwner());
+                log.info("更新 owner: {}", schedule.getOwner());
+            }
+            
+            ProcessSchedule saved = processScheduleRepository.save(existing);
+            log.info("调度更新成功: id={}", saved.getId());
+            return saved;
+        } catch (Exception e) {
+            log.error("更新调度失败: id={}, error={}", id, e.getMessage(), e);
+            throw e;
+        }
     }
 
     @Transactional
@@ -72,10 +101,14 @@ public class ProcessScheduleService {
     }
 
     public Page<ProcessSchedule> listSchedules(Long projectId, Long processDefinitionId, Pageable pageable) {
-        if (processDefinitionId != null) {
+        if (projectId != null && processDefinitionId != null) {
             return processScheduleRepository.findByProjectIdAndProcessDefinitionId(projectId, processDefinitionId, pageable);
+        } else if (projectId != null) {
+            return processScheduleRepository.findByProjectId(projectId, pageable);
+        } else if (processDefinitionId != null) {
+            return processScheduleRepository.findByProcessDefinitionId(processDefinitionId, pageable);
         }
-        return processScheduleRepository.findByProjectId(projectId, pageable);
+        return processScheduleRepository.findAll(pageable);
     }
 
     public List<ProcessSchedule> listSchedulesByProcess(Long processDefinitionId) {

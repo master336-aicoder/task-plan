@@ -1,0 +1,42 @@
+
+&lt;!DOCTYPE html&gt;
+&lt;html lang="zh-CN"&gt;
+&lt;head&gt;
+    &lt;meta charset="UTF-8"&gt;
+    &lt;title&gt;文件上传测试&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;h1&gt;文件上传测试&lt;/h1&gt;
+    &lt;form id="uploadForm" enctype="multipart/form-data"&gt;
+        &lt;input type="file" name="file" id="fileInput" /&gt;
+        &lt;input type="number" name="parentId" value="" placeholder="父目录ID(可选)" /&gt;
+        &lt;button type="button" onclick="testUpload()"&gt;测试上传&lt;/button&gt;
+    &lt;/form&gt;
+    &lt;div id="result" style="margin-top: 20px; border: 1px solid #ccc; padding: 10px;"&gt;&lt;/div&gt;
+
+    &lt;script&gt;
+        async function testUpload() {
+            const formData = new FormData(document.getElementById('uploadForm'));
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                resultDiv.innerHTML = '&lt;p&gt;正在上传...&lt;/p&gt;';
+                
+                const response = await fetch('http://localhost:8080/api/files/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.text();
+                resultDiv.innerHTML = `
+                    &lt;p&gt;状态码: ${response.status}&lt;/p&gt;
+                    &lt;p&gt;响应内容:&lt;/p&gt;
+                    &lt;pre&gt;${result}&lt;/pre&gt;
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `&lt;p style="color: red;"&gt;错误: ${error.message}&lt;/p&gt;`;
+            }
+        }
+    &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;

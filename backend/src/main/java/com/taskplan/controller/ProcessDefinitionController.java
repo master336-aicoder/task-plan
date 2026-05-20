@@ -58,13 +58,14 @@ public class ProcessDefinitionController {
 
     @PostMapping("/design")
     public Result<ProcessDefinition> createProcessWithDesign(@RequestBody Map<String, Object> request) {
+        Long id = request.get("id") != null ? Long.parseLong(request.get("id").toString()) : null;
         Long projectId = request.get("projectId") != null ? Long.parseLong(request.get("projectId").toString()) : null;
         String name = (String) request.get("name");
         String releaseState = (String) request.get("releaseState");
         List<Map<String, Object>> taskNodes = (List<Map<String, Object>>) request.get("taskNodes");
         List<Map<String, Object>> connections = (List<Map<String, Object>>) request.get("connections");
         
-        return Result.success(processDefinitionService.createProcessWithNodes(projectId, name, releaseState, taskNodes, connections));
+        return Result.success(processDefinitionService.saveProcessWithNodes(id, projectId, name, releaseState, taskNodes, connections));
     }
 
     @PutMapping("/{id}")
