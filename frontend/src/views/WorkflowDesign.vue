@@ -3,27 +3,32 @@
     <div class="page-header">
       <div class="flex justify-between items-center">
         <div>
-          <h2 class="text-xl font-bold">工作流设计</h2>
+          <h2 class="text-xl font-bold">
+            工作流设计
+            <el-tag v-if="isReadonly" type="info" size="small">只读 - 版本 {{ viewVersion }}</el-tag>
+          </h2>
           <div class="flex gap-4 mt-3">
-            <el-select v-model="projectId" placeholder="选择所属项目" style="width: 200px">
+            <el-select v-model="projectId" placeholder="选择所属项目" style="width: 200px" :disabled="isReadonly">
               <el-option v-for="project in projects" :key="project.id" :label="project.name" :value="project.id" />
             </el-select>
-            <el-input v-model="workflowName" placeholder="请输入工作流名称" style="width: 300px" />
+            <el-input v-model="workflowName" placeholder="请输入工作流名称" style="width: 300px" :disabled="isReadonly" />
           </div>
         </div>
         <div class="flex gap-4">
-          <el-button type="success" @click="validateAndSave">
-            <el-icon class="mr-1"><DocumentChecked /></el-icon>
-            保存
-          </el-button>
-          <el-button type="primary" @click="validateAndRelease">
-            <el-icon class="mr-1"><Top /></el-icon>
-            发布
-          </el-button>
-          <el-button v-if="workflowId" type="warning" @click="executeWorkflow">
-            <el-icon class="mr-1"><VideoPlay /></el-icon>
-            立即执行
-          </el-button>
+          <template v-if="!isReadonly">
+            <el-button type="success" @click="validateAndSave">
+              <el-icon class="mr-1"><DocumentChecked /></el-icon>
+              保存
+            </el-button>
+            <el-button type="primary" @click="validateAndRelease">
+              <el-icon class="mr-1"><Top /></el-icon>
+              发布
+            </el-button>
+            <el-button v-if="workflowId" type="warning" @click="executeWorkflow">
+              <el-icon class="mr-1"><VideoPlay /></el-icon>
+              立即执行
+            </el-button>
+          </template>
           <el-button @click="goBack">
             <el-icon class="mr-1"><Back /></el-icon>
             返回列表
@@ -33,7 +38,7 @@
     </div>
 
     <div class="design-content">
-      <div class="task-panel">
+      <div v-if="!isReadonly" class="task-panel">
         <h3 class="font-bold mb-3">任务类型</h3>
         <div class="task-types">
           <div
@@ -53,7 +58,7 @@
         <div class="canvas-header">
           <span>工作流画布</span>
           <div class="canvas-actions">
-            <el-button size="small" @click="clearCanvas">清空画布</el-button>
+            <el-button v-if="!isReadonly" size="small" @click="clearCanvas">清空画布</el-button>
             <el-button size="small" @click="zoomIn">放大</el-button>
             <el-button size="small" @click="zoomOut">缩小</el-button>
           </div>
@@ -109,8 +114,8 @@
               :y2="conn.y2"
               stroke="#409eff"
               stroke-width="2"
-              class="connection-line"
-              @click.stop="deleteConnection(conn)"
+              :class="['connection-line', { 'clickable': !isReadonly }]"
+              @click.stop="!isReadonly && deleteConnection(conn)"
             />
           </svg>
 
@@ -262,7 +267,7 @@
             </el-select>
           </el-form-item>
         </el-form>
-        <div class="detail-footer">
+        <div v-if="!isReadonly" class="detail-footer">
           <el-button type="primary" @click="saveDetail">保存配置</el-button>
         </div>
       </div>
@@ -399,6 +404,8 @@ const dragOffset = reactive({ x: 0, y: 0 })
 const workflowId = ref<number | null>(null)
 const projectId = ref<number>(0)
 const scriptSource = ref<'file' | 'content'>('content')
+const isReadonly = ref(false)
+const viewVersion = ref<number | null>(null)
 
 const sqlPlaceholder = '请输入SQL语句，支持多行，例如：\nSELECT * FROM users\nWHERE status = 1\nORDER BY create_time DESC\nLIMIT 100'
 const scriptPlaceholder = '请输入脚本内容，例如：\n#!/bin/bash\necho "Hello World"\ncd /data\n./process.sh'
@@ -1086,17 +1093,56 @@ const loadWorkflow = async (id: number) => {
   }
 }
 
+const loadWorkflowVersion = async (id: number, version: number) => {
+  try {
+    const res = await workflowApi.getHistoryVersion(id, version)
+    const data = res.data || res
+    
+    workflowId.value = data.processDefinitionId
+    workflowName.value = data.name
+    projectId.value = data.projectId
+    viewVersion.value = version
+    
+    const definition = JSON.parse(data.definitionJson || '{}')
+    nodes.value = definition.nodes || []
+    
+    const loadedConnections = definition.connections || []
+    connections.value = loadedConnections.map((conn: any) => ({
+      ...conn,
+      x1: 0,
+      y1: 0,
+      x2: 0,
+      y2: 0
+    }))
+    
+    setTimeout(() => {
+      updateConnections()
+    }, 100)
+  } catch (error) {
+    console.error('加载历史版本失败', error)
+    ElMessage.error('加载历史版本失败')
+  }
+}
+
 onMounted(() => {
   loadResources()
   
   const workflowIdParam = route.params.id
+  const versionParam = route.params.version
   console.log('Route params:', route.params)
   console.log('workflowIdParam:', workflowIdParam)
+  console.log('versionParam:', versionParam)
   
   if (workflowIdParam) {
     const id = parseInt(workflowIdParam as string)
     console.log('Parsed workflow id:', id)
-    loadWorkflow(id)
+    
+    if (versionParam) {
+      isReadonly.value = true
+      loadWorkflowVersion(id, parseInt(versionParam as string))
+    } else {
+      loadWorkflow(id)
+    }
   } else {
     const projectIdStr = sessionStorage.getItem('currentProjectId')
     if (projectIdStr) {
@@ -1351,6 +1397,15 @@ onMounted(() => {
 .connection-line:hover {
   stroke: #67c23a;
   stroke-width: 3;
+}
+
+.connection-line:not(.clickable) {
+  cursor: default;
+}
+
+.connection-line:not(.clickable):hover {
+  stroke: #409eff;
+  stroke-width: 2;
 }
 
 .detail-panel {

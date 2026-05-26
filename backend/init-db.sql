@@ -72,6 +72,18 @@ INSERT IGNORE INTO t_task_type_config (name, task_type, program_path, descriptio
 ('Java8', 'JAVA', '/usr/lib/jvm/java-8-openjdk-amd64/bin/java', 'Java8运行环境'),
 ('Java11', 'JAVA', '/usr/lib/jvm/java-11-openjdk-amd64/bin/java', 'Java11运行环境');
 
+CREATE TABLE IF NOT EXISTS t_env_variable (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    config_name VARCHAR(200),
+    name VARCHAR(200) NOT NULL,
+    value VARCHAR(500),
+    category VARCHAR(100),
+    description VARCHAR(500),
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_env_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 INSERT IGNORE INTO t_cluster_config (name, type, description) VALUES
 ('Local YARN', 'YARN', '本地YARN集群'),
 ('Local Flink', 'FLINK', '本地Flink集群'),

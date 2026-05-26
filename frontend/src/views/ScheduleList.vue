@@ -2,22 +2,46 @@
   <div class="schedule-list">
     <div class="page-header">
       <h2 class="text-xl font-bold mb-3">调度管理</h2>
-      <div class="flex gap-4 flex-wrap">
-        <el-select v-model="selectedProjectId" placeholder="选择项目" @change="loadWorkflows" style="width: 200px">
-          <el-option :label="'全部项目'" :value="undefined" />
-          <el-option v-for="project in projects" :key="project.id" :label="project.name" :value="project.id" />
-        </el-select>
-        <el-select v-model="selectedWorkflowId" placeholder="选择工作流" @change="loadSchedules" style="width: 250px">
-          <el-option v-for="workflow in workflows" :key="workflow.id" :label="workflow.name" :value="workflow.id" />
-        </el-select>
-        <el-button type="primary" @click="showForm()">
-          <el-icon class="mr-1"><Plus /></el-icon>
-          新建调度
-        </el-button>
+      <div class="flex gap-4 flex-wrap justify-between">
+        <div class="flex gap-4 flex-wrap">
+          <el-select v-model="selectedProjectId" placeholder="选择项目" @change="loadWorkflows" style="width: 200px">
+            <el-option :label="'全部项目'" :value="undefined" />
+            <el-option v-for="project in projects" :key="project.id" :label="project.name" :value="project.id" />
+          </el-select>
+          <el-select v-model="selectedWorkflowId" placeholder="选择工作流" @change="loadSchedules" style="width: 250px">
+            <el-option v-for="workflow in workflows" :key="workflow.id" :label="workflow.name" :value="workflow.id" />
+          </el-select>
+        </div>
+        <div class="flex gap-4 flex-wrap">
+          <el-button v-if="selectedIds.length > 0" type="warning" @click="batchEnable" :loading="batchLoading">
+            批量启用
+          </el-button>
+          <el-button v-if="selectedIds.length > 0" type="info" @click="batchDisable" :loading="batchLoading">
+            批量禁用
+          </el-button>
+          <el-button v-if="selectedIds.length > 0" type="primary" @click="batchExecuteNow" :loading="batchLoading">
+            批量立即执行
+          </el-button>
+          <el-button v-if="selectedIds.length > 0" type="success" @click="batchRetry" :loading="batchLoading">
+            批量重试
+          </el-button>
+          <el-popconfirm v-if="selectedIds.length > 0" title="确定要批量删除选中的调度吗？" @confirm="batchDelete">
+            <template #reference>
+              <el-button type="danger" :loading="batchLoading">
+                批量删除
+              </el-button>
+            </template>
+          </el-popconfirm>
+          <el-button type="primary" @click="showForm()">
+            <el-icon class="mr-1"><Plus /></el-icon>
+            新建调度
+          </el-button>
+        </div>
       </div>
     </div>
 
-    <el-table :data="schedules" border v-loading="loading" stripe>
+    <el-table :data="schedules" border v-loading="loading" stripe @select-all="handleSelectAll" @select="handleSelect">
+      <el-table-column type="selection" width="55" />
       <el-table-column prop="id" label="ID" width="80" />
       <el-table-column prop="processDefinitionName" label="工作流名称" min-width="150" />
       <el-table-column prop="cronExpression" label="Cron表达式" min-width="150" />
@@ -32,11 +56,19 @@
       </el-table-column>
       <el-table-column prop="owner" label="负责人" width="100" />
       <el-table-column prop="createTime" label="创建时间" width="180" />
-      <el-table-column label="操作" width="300" fixed="right">
+      <el-table-column label="操作" width="400" fixed="right">
         <template #default="{ row }">
-          <el-button size="small" @click="showForm(row)">编辑</el-button>
+          <el-button 
+            size="small" 
+            @click="showForm(row)"
+            :disabled="row.isValid === 1"
+            :title="row.isValid === 1 ? '启用状态下不允许编辑，请先禁用' : ''"
+          >
+            {{ row.isValid === 1 ? '已启用' : '编辑' }}
+          </el-button>
           <el-button v-if="row.isValid === 1" size="small" type="warning" @click="disableSchedule(row)">禁用</el-button>
           <el-button v-else size="small" type="success" @click="enableSchedule(row)">启用</el-button>
+          <el-button size="small" type="primary" @click="executeNow(row)">立即执行</el-button>
           <el-popconfirm title="确定要删除这个调度吗？" @confirm="deleteSchedule(row)">
             <template #reference>
               <el-button size="small" type="danger">删除</el-button>
@@ -96,13 +128,14 @@ import { ref, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import CronEditor from '@/components/CronEditor.vue'
-import { projectApi, workflowApi, scheduleApi, type Project, type ProcessDefinition, type ProcessSchedule } from '@/api'
+import { projectApi, workflowApi, scheduleApi, executionApi, type Project, type ProcessDefinition, type ProcessSchedule } from '@/api'
 
 const schedules = ref<any[]>([])
 const projects = ref<Project[]>([])
 const workflows = ref<ProcessDefinition[]>([])
 const loading = ref(false)
 const submitting = ref(false)
+const batchLoading = ref(false)
 const formVisible = ref(false)
 const editingSchedule = ref<ProcessSchedule | null>(null)
 const formRef = ref()
@@ -112,6 +145,7 @@ const selectedWorkflowId = ref<number | undefined>(undefined)
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
+const selectedIds = ref<number[]>([])
 
 const availableWorkflows = computed(() => {
   return workflows.value
@@ -148,11 +182,11 @@ const loadProjects = async () => {
 const loadWorkflows = async () => {
   try {
     if (selectedProjectId.value) {
-      const data = await workflowApi.listByProject(selectedProjectId.value)
+      const data = await workflowApi.listOnline(selectedProjectId.value)
       workflows.value = data || []
     } else {
       const resultData = await workflowApi.list({ page: 1, size: 100 })
-      workflows.value = resultData.data || []
+      workflows.value = resultData.data?.filter((w: any) => w.releaseState === 'ONLINE') || []
     }
     selectedWorkflowId.value = undefined
     loadSchedules()
@@ -277,6 +311,125 @@ const deleteSchedule = async (schedule: any) => {
     loadSchedules()
   } catch (error) {
     ElMessage.error('删除失败')
+  }
+}
+
+const executeNow = async (schedule: any) => {
+  try {
+    await executionApi.start(schedule.processDefinitionId)
+    ElMessage.success(`工作流 ${schedule.processDefinitionName} 已启动`)
+  } catch (error) {
+    ElMessage.error('启动失败')
+  }
+}
+
+const retrySchedule = async (schedule: any) => {
+  try {
+    await executionApi.start(schedule.processDefinitionId)
+    ElMessage.success(`工作流 ${schedule.processDefinitionName} 已重试`)
+  } catch (error) {
+    ElMessage.error('重试失败')
+  }
+}
+
+const handleSelectAll = (val: any[]) => {
+  selectedIds.value = val.map((item: any) => item.id)
+}
+
+const handleSelect = (val: any[], row: any) => {
+  const idx = selectedIds.value.indexOf(row.id)
+  if (idx > -1) {
+    selectedIds.value.splice(idx, 1)
+  } else {
+    selectedIds.value.push(row.id)
+  }
+}
+
+const batchEnable = async () => {
+  batchLoading.value = true
+  try {
+    for (const id of selectedIds.value) {
+      await scheduleApi.enable(id)
+    }
+    ElMessage.success(`成功启用 ${selectedIds.value.length} 个调度`)
+    selectedIds.value = []
+    loadSchedules()
+  } catch (error) {
+    ElMessage.error('批量启用失败')
+  } finally {
+    batchLoading.value = false
+  }
+}
+
+const batchDisable = async () => {
+  batchLoading.value = true
+  try {
+    for (const id of selectedIds.value) {
+      await scheduleApi.disable(id)
+    }
+    ElMessage.success(`成功禁用 ${selectedIds.value.length} 个调度`)
+    selectedIds.value = []
+    loadSchedules()
+  } catch (error) {
+    ElMessage.error('批量禁用失败')
+  } finally {
+    batchLoading.value = false
+  }
+}
+
+const batchDelete = async () => {
+  batchLoading.value = true
+  try {
+    for (const id of selectedIds.value) {
+      await scheduleApi.delete(id)
+    }
+    ElMessage.success(`成功删除 ${selectedIds.value.length} 个调度`)
+    selectedIds.value = []
+    loadSchedules()
+  } catch (error) {
+    ElMessage.error('批量删除失败')
+  } finally {
+    batchLoading.value = false
+  }
+}
+
+const batchExecuteNow = async () => {
+  batchLoading.value = true
+  let successCount = 0
+  try {
+    for (const id of selectedIds.value) {
+      const schedule = schedules.value.find(s => s.id === id)
+      if (schedule) {
+        await executionApi.start(schedule.processDefinitionId)
+        successCount++
+      }
+    }
+    ElMessage.success(`成功启动 ${successCount} 个工作流`)
+    selectedIds.value = []
+  } catch (error) {
+    ElMessage.error('批量执行失败')
+  } finally {
+    batchLoading.value = false
+  }
+}
+
+const batchRetry = async () => {
+  batchLoading.value = true
+  let successCount = 0
+  try {
+    for (const id of selectedIds.value) {
+      const schedule = schedules.value.find(s => s.id === id)
+      if (schedule) {
+        await executionApi.start(schedule.processDefinitionId)
+        successCount++
+      }
+    }
+    ElMessage.success(`成功重试 ${successCount} 个工作流`)
+    selectedIds.value = []
+  } catch (error) {
+    ElMessage.error('批量重试失败')
+  } finally {
+    batchLoading.value = false
   }
 }
 

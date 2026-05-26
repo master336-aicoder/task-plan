@@ -37,19 +37,20 @@
     </div>
 
     <el-table :data="files" border v-loading="loading" stripe fit>
-      <el-table-column label="图标" width="50">
+      <el-table-column label="图标" width="80">
         <template #default="{ row }">
-          <el-icon v-if="row.isDirectory === 1" class="text-yellow-500"><Folder /></el-icon>
-          <el-icon v-else class="text-blue-500"><Document /></el-icon>
+          <el-icon v-if="row.isDirectory === 1" class="text-yellow-500" style="font-size: 20px;"><Folder /></el-icon>
+          <el-icon v-else class="text-blue-500" style="font-size: 20px;"><Document /></el-icon>
         </template>
       </el-table-column>
       <el-table-column 
         prop="name" 
         label="名称" 
-        min-width="180"
+        min-width="120"
+        show-overflow-tooltip
       >
         <template #default="{ row }">
-          <span class="cursor-pointer hover:text-blue-500" @click="handleFileClick(row)">
+          <span class="cursor-pointer hover:text-blue-500 truncate-text" @click="handleFileClick(row)">
             {{ row.name }}
             <el-icon v-if="row.isDirectory === 1" class="ml-1"><ArrowRight /></el-icon>
           </span>
@@ -552,5 +553,19 @@ onMounted(() => {
 .info-value {
   color: #303133;
   font-size: 13px;
+}
+
+.truncate-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+  max-width: 100%;
+}
+
+:deep(.el-table .cell) {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style>

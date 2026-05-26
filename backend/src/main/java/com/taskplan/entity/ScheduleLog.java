@@ -18,6 +18,15 @@ public class ScheduleLog {
     @Column(name = "process_definition_id")
     private Long processDefinitionId;
 
+    @Column(name = "process_instance_id")
+    private Long processInstanceId;
+
+    @Column(name = "task_node_id", length = 100)
+    private String taskNodeId;
+
+    @Column(name = "task_name", length = 200)
+    private String taskName;
+
     @Column(name = "log_level")
     private String logLevel;
 

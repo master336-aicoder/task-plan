@@ -226,16 +226,15 @@ CREATE TABLE IF NOT EXISTS datasource (
 -- ==============================================
 -- 环境变量表
 -- ==============================================
-CREATE TABLE IF NOT EXISTS env_variable (
+CREATE TABLE IF NOT EXISTS t_env_variable (
     id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
-    name VARCHAR(100) NOT NULL COMMENT '变量名',
-    value TEXT NOT NULL COMMENT '变量值',
-    project_id BIGINT NOT NULL COMMENT '所属项目ID',
-    description TEXT NULL COMMENT '描述',
+    config_name VARCHAR(200) NULL COMMENT '配置名称',
+    name VARCHAR(200) NOT NULL COMMENT '变量名',
+    value VARCHAR(500) NULL COMMENT '变量值',
+    category VARCHAR(100) NULL COMMENT '分类',
+    description VARCHAR(500) NULL COMMENT '描述',
     create_time DATETIME NOT NULL COMMENT '创建时间',
-    update_time DATETIME NOT NULL COMMENT '更新时间',
-    FOREIGN KEY (project_id) REFERENCES project(id) ON DELETE CASCADE,
-    UNIQUE KEY uk_project_name (project_id, name)
+    update_time DATETIME NOT NULL COMMENT '更新时间'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='环境变量表';
 
 -- ==============================================

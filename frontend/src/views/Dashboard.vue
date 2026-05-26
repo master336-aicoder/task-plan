@@ -125,8 +125,10 @@ const getStateType = (state: string) => {
   const types: Record<string, string> = {
     SUCCESS: 'success',
     FAILURE: 'danger',
-    RUNNING: 'warning',
-    PENDING: 'info'
+    RUNNING_EXECUTION: 'warning',
+    PENDING: 'info',
+    STOP: 'default',
+    TIMEOUT: 'danger'
   }
   return types[state] || 'info'
 }
@@ -135,8 +137,10 @@ const getStateLabel = (state: string) => {
   const labels: Record<string, string> = {
     SUCCESS: '成功',
     FAILURE: '失败',
-    RUNNING: '运行中',
-    PENDING: '等待'
+    RUNNING_EXECUTION: '运行中',
+    PENDING: '等待',
+    STOP: '已停止',
+    TIMEOUT: '超时'
   }
   return labels[state] || state
 }
@@ -154,11 +158,21 @@ const loadUserInfo = async () => {
 
 const loadStats = async () => {
   try {
-    const projects = await projectApi.list()
-    stats.projectCount = Array.isArray(projects) ? projects.length : 0
+    const projectRes = await projectApi.list()
+    const projectData = projectRes.data || projectRes
+    stats.projectCount = Array.isArray(projectData) ? projectData.length : (projectRes.total || 0)
     
-    const workflows = await workflowApi.list({})
-    stats.workflowCount = Array.isArray(workflows) ? workflows.length : 0
+    const workflowRes = await workflowApi.list({})
+    const workflowData = workflowRes.data || workflowRes
+    stats.workflowCount = Array.isArray(workflowData) ? workflowData.length : (workflowRes.total || 0)
+    
+    const scheduleRes = await scheduleApi.list({ projectId: 1 })
+    const scheduleData = scheduleRes.data || scheduleRes
+    stats.scheduleCount = Array.isArray(scheduleData) ? scheduleData.length : (scheduleRes.total || 0)
+    
+    const executionRes = await executionApi.list({ projectId: 1 })
+    const executionData = executionRes.data || executionRes
+    stats.executionCount = Array.isArray(executionData) ? executionData.length : (executionRes.total || 0)
   } catch (error) {
     console.error('Load stats failed:', error)
   }

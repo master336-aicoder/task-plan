@@ -11,9 +11,9 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.taskplan</groupId>
+    <groupId>com.zd.taskplan</groupId>
     <artifactId>task-plan</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <name>Task Plan Toolbox</name>
     <description>任务计划管理系统</description>
 
@@ -94,6 +94,12 @@
             <artifactId>jjwt-jackson</artifactId>
             <version>0.11.5</version>
             <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.jcraft</groupId>
+            <artifactId>jsch</artifactId>
+            <version>0.1.55</version>
         </dependency>
     </dependencies>
     <distributionManagement>

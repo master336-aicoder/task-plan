@@ -17,6 +17,8 @@ import UserList from '@/views/UserList.vue'
 import RoleList from '@/views/RoleList.vue'
 import MenuList from '@/views/MenuList.vue'
 import SysConfigList from '@/views/SysConfigList.vue'
+import ScheduleLogList from '@/views/ScheduleLogList.vue'
+import TaskExecutionLogList from '@/views/TaskExecutionLogList.vue'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -36,6 +38,7 @@ const routes: RouteRecordRaw[] = [
       { path: '/workflows', component: WorkflowList, name: 'WorkflowList' },
       { path: '/workflow-design', component: WorkflowDesign, name: 'WorkflowDesign' },
       { path: '/workflow-design/:id', component: WorkflowDesign, name: 'WorkflowDesignEdit' },
+      { path: '/workflow-design/:id/version/:version', component: WorkflowDesign, name: 'WorkflowDesignVersion' },
       { path: '/schedules', component: ScheduleList, name: 'ScheduleList' },
       { path: '/executions', component: ExecutionList, name: 'ExecutionList' },
       { path: '/datasources', component: DatasourceList, name: 'DatasourceList' },
@@ -47,10 +50,12 @@ const routes: RouteRecordRaw[] = [
       { path: '/system/users', component: UserList, name: 'UserList' },
       { path: '/system/roles', component: RoleList, name: 'RoleList' },
       { path: '/system/menus', component: MenuList, name: 'MenuList' },
-      { path: '/system/config', component: SysConfigList, name: 'SysConfigList' }
-    ]
-  }
-]
+      { path: '/system/config', component: SysConfigList, name: 'SysConfigList' },
+      { path: '/logs/schedule', component: ScheduleLogList, name: 'ScheduleLogList' },
+      { path: '/logs/task-execution', component: TaskExecutionLogList, name: 'TaskExecutionLogList' }
+      ]
+    }
+  ]
 
 const router = createRouter({
   history: createWebHashHistory(),

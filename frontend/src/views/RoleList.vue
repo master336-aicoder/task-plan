@@ -56,6 +56,10 @@
     </el-dialog>
 
     <el-dialog v-model="menuDialogVisible" title="分配菜单权限" width="600px">
+      <div class="mb-3">
+        <el-button size="small" type="primary" @click="selectAllMenus">全选</el-button>
+        <el-button size="small" type="info" @click="deselectAllMenus" class="ml-2">全部不选</el-button>
+      </div>
       <el-tree
         ref="menuTreeRef"
         :data="menuTree"
@@ -114,7 +118,8 @@ const loadRoles = async () => {
 
 const loadMenuTree = async () => {
   try {
-    menuTree.value = await menuApi.getTree()
+    const res = await menuApi.getTree()
+    menuTree.value = res.data || res || []
   } catch (error) {
     console.error('Load menu tree failed:', error)
   }
@@ -160,13 +165,36 @@ const submitForm = async () => {
 const showMenus = async (role: SysRole) => {
   currentRoleId.value = role.id
   try {
-    const menus = await roleApi.getMenus(role.id!)
+    const res = await roleApi.getMenus(role.id!)
+    const menus = res.data || res || []
     const checkedKeys = menus.map((m: SysMenu) => m.id!)
     menuTreeRef.value?.setCheckedKeys(checkedKeys)
     menuDialogVisible.value = true
   } catch (error) {
     ElMessage.error('加载菜单权限失败')
   }
+}
+
+const getAllMenuIds = (menus: SysMenu[]): number[] => {
+  let ids: number[] = []
+  for (const menu of menus) {
+    if (menu.id) {
+      ids.push(menu.id)
+    }
+    if (menu.children && menu.children.length > 0) {
+      ids = [...ids, ...getAllMenuIds(menu.children)]
+    }
+  }
+  return ids
+}
+
+const selectAllMenus = () => {
+  const allIds = getAllMenuIds(menuTree.value)
+  menuTreeRef.value?.setCheckedKeys(allIds)
+}
+
+const deselectAllMenus = () => {
+  menuTreeRef.value?.setCheckedKeys([])
 }
 
 const submitMenus = async () => {

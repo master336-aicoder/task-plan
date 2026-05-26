@@ -2,6 +2,8 @@ package com.taskplan.controller;
 
 import com.taskplan.common.Result;
 import com.taskplan.entity.ProcessDefinition;
+import com.taskplan.entity.ProcessDefinitionHistory;
+import com.taskplan.entity.ProcessDefinitionVersionDiff;
 import com.taskplan.service.ProcessDefinitionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -93,5 +95,35 @@ public class ProcessDefinitionController {
     public Result<Void> deleteProcess(@PathVariable Long id) {
         processDefinitionService.deleteProcess(id);
         return Result.success();
+    }
+
+    @GetMapping("/{id}/history")
+    public Result<List<ProcessDefinitionHistory>> getProcessHistory(@PathVariable Long id) {
+        return Result.success(processDefinitionService.getHistoryByProcessId(id));
+    }
+
+    @GetMapping("/{id}/history/{version}")
+    public Result<ProcessDefinitionHistory> getProcessHistoryByVersion(@PathVariable Long id, @PathVariable Integer version) {
+        return Result.success(processDefinitionService.getHistoryByVersion(id, version));
+    }
+
+    @GetMapping("/{id}/history/compare")
+    public Result<ProcessDefinitionVersionDiff> compareVersions(
+            @PathVariable Long id,
+            @RequestParam Integer sourceVersion,
+            @RequestParam Integer targetVersion) {
+        return Result.success(processDefinitionService.compareVersions(id, sourceVersion, targetVersion));
+    }
+
+    @GetMapping("/{id}/history/compare-with-current")
+    public Result<ProcessDefinitionVersionDiff> compareWithCurrent(
+            @PathVariable Long id,
+            @RequestParam Integer version) {
+        return Result.success(processDefinitionService.compareWithCurrent(id, version));
+    }
+
+    @PostMapping("/{id}/history/{version}/rollback")
+    public Result<ProcessDefinition> rollbackToVersion(@PathVariable Long id, @PathVariable Integer version) {
+        return Result.success(processDefinitionService.rollbackToVersion(id, version));
     }
 }

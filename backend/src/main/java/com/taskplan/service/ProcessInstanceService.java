@@ -86,4 +86,42 @@ public class ProcessInstanceService {
     public List<ProcessInstance> listRunningInstances() {
         return processInstanceRepository.findByState("RUNNING_EXECUTION");
     }
+
+    @Transactional
+    public void deleteInstance(Long id) {
+        if (!processInstanceRepository.existsById(id)) {
+            throw new BusinessException("执行记录不存在");
+        }
+        processInstanceRepository.deleteById(id);
+        log.info("Process instance deleted: id={}", id);
+    }
+
+    @Transactional
+    public ProcessInstance retryProcess(Long instanceId) {
+        ProcessInstance originalInstance = getInstance(instanceId);
+        
+        String state = originalInstance.getState();
+        if (!"FAILURE".equals(state) && !"STOP".equals(state) && !"TIMEOUT".equals(state)) {
+            throw new BusinessException("只有失败、已停止或超时的任务才能重试");
+        }
+        
+        ProcessDefinition processDefinition = processDefinitionRepository.findById(originalInstance.getProcessDefinitionId())
+                .orElseThrow(() -> new BusinessException("工作流定义不存在"));
+        
+        if (!"ONLINE".equals(processDefinition.getReleaseState())) {
+            throw new BusinessException("工作流未上线，无法重试");
+        }
+        
+        ProcessInstance newInstance = new ProcessInstance();
+        newInstance.setProjectId(processDefinition.getProjectId());
+        newInstance.setProcessDefinitionId(processDefinition.getId());
+        newInstance.setProcessName(processDefinition.getName());
+        newInstance.setState("RUNNING_EXECUTION");
+        newInstance.setCommandType("RETRY");
+        newInstance.setOwner(processDefinition.getOwner());
+        
+        log.info("Process instance retried: originalId={}, newId will be created", instanceId);
+        
+        return processInstanceRepository.save(newInstance);
+    }
 }

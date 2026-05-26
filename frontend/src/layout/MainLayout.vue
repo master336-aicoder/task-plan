@@ -5,60 +5,21 @@
         <h1 class="logo">任务计划系统</h1>
       </div>
       <el-menu :default-active="activeMenu" mode="vertical" class="sidebar-menu" :router="true">
-        <el-menu-item index="/dashboard">
-          <el-icon><Odometer /></el-icon>
-          <span>工作台</span>
-        </el-menu-item>
-        <el-menu-item index="/projects">
-          <el-icon><FolderOpened /></el-icon>
-          <span>项目管理</span>
-        </el-menu-item>
-        <el-menu-item index="/workflows">
-          <el-icon><Connection /></el-icon>
-          <span>工作流管理</span>
-        </el-menu-item>
-        <el-menu-item index="/schedules">
-          <el-icon><Clock /></el-icon>
-          <span>调度管理</span>
-        </el-menu-item>
-        <el-menu-item index="/executions">
-          <el-icon><List /></el-icon>
-          <span>执行记录</span>
-        </el-menu-item>
-        <el-menu-item index="/datasources">
-          <el-icon><Coin /></el-icon>
-          <span>数据源管理</span>
-        </el-menu-item>
-        <el-menu-item index="/servers">
-          <el-icon><Cpu /></el-icon>
-          <span>服务器管理</span>
-        </el-menu-item>
-        <el-menu-item index="/files">
-          <el-icon><Folder /></el-icon>
-          <span>文件管理</span>
-        </el-menu-item>
-        <el-menu-item index="/cluster-configs">
-          <el-icon><Grid /></el-icon>
-          <span>集群配置</span>
-        </el-menu-item>
-        <el-menu-item index="/task-types">
-          <el-icon><Briefcase /></el-icon>
-          <span>任务类型</span>
-        </el-menu-item>
-        <el-menu-item index="/env-variables">
-          <el-icon><Setting /></el-icon>
-          <span>环境变量</span>
-        </el-menu-item>
-        <el-sub-menu index="system">
-          <template #title>
-            <el-icon><Tools /></el-icon>
-            <span>系统管理</span>
-          </template>
-          <el-menu-item index="/system/users">用户管理</el-menu-item>
-          <el-menu-item index="/system/roles">角色管理</el-menu-item>
-          <el-menu-item index="/system/menus">菜单管理</el-menu-item>
-          <el-menu-item index="/system/config">系统配置</el-menu-item>
-        </el-sub-menu>
+        <template v-for="menu in menus" :key="menu.id">
+          <el-menu-item v-if="getChildren(menu.id).length === 0" :index="menu.path">
+            <component v-if="getIcon(menu.icon)" :is="getIcon(menu.icon)" class="el-icon" />
+            <span>{{ menu.menuName }}</span>
+          </el-menu-item>
+          <el-sub-menu v-else :index="menu.path">
+            <template #title>
+              <component v-if="getIcon(menu.icon)" :is="getIcon(menu.icon)" class="el-icon" />
+              <span>{{ menu.menuName }}</span>
+            </template>
+            <el-menu-item v-for="child in getChildren(menu.id)" :key="child.id" :index="child.path">
+              {{ child.menuName }}
+            </el-menu-item>
+          </el-sub-menu>
+        </template>
       </el-menu>
     </aside>
     <main class="main-content">
@@ -90,14 +51,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Odometer, FolderOpened, Connection, Clock, List, Coin, Cpu, Folder, Grid, Briefcase, Setting, Tools, User } from '@element-plus/icons-vue'
-import { authApi } from '@/api'
+import { Odometer, FolderOpened, Connection, Clock, List, Coin, Cpu, Folder, Grid, Briefcase, Setting, Tools, User, Document } from '@element-plus/icons-vue'
+import { authApi, menuApi, type SysMenu } from '@/api'
 
 const router = useRouter()
 const activeMenu = ref('/dashboard')
+const menuList = ref<SysMenu[]>([])
+
+const menus = computed(() => {
+  return menuList.value.filter(m => m.parentId === null || m.parentId === 0)
+})
 
 const userInfo = reactive({
   userId: 0,
@@ -105,6 +71,32 @@ const userInfo = reactive({
   realName: '',
   roles: [] as number[]
 })
+
+const getChildren = (parentId: number) => {
+  return menuList.value.filter(m => m.parentId === parentId)
+}
+
+const iconMap: Record<string, any> = {
+  Odometer,
+  FolderOpened,
+  Connection,
+  Clock,
+  List,
+  Coin,
+  Cpu,
+  Folder,
+  Grid,
+  Briefcase,
+  Setting,
+  Tools,
+  Document,
+  FileText: Document
+}
+
+const getIcon = (iconName?: string) => {
+  if (!iconName) return null
+  return iconMap[iconName] || null
+}
 
 const updateActiveMenu = () => {
   const path = window.location.hash.replace('#', '') || '/dashboard'
@@ -127,6 +119,15 @@ const handleCommand = async (command: string) => {
   }
 }
 
+const loadMenus = async () => {
+  try {
+    const res = await menuApi.list()
+    menuList.value = res.data || res || []
+  } catch (error) {
+    console.error('加载菜单失败:', error)
+  }
+}
+
 onMounted(() => {
   updateActiveMenu()
   window.addEventListener('hashchange', updateActiveMenu)
@@ -135,6 +136,8 @@ onMounted(() => {
   if (stored) {
     Object.assign(userInfo, JSON.parse(stored))
   }
+  
+  loadMenus()
 })
 
 onUnmounted(() => {

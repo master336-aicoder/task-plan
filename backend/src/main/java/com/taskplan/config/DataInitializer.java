@@ -123,11 +123,14 @@ public class DataInitializer implements CommandLineRunner {
         SysMenu envMenu = createMenu("环境变量", "env", "C", "/env-variables", null, null, "Setting", 11, null);
         
         SysMenu systemMenu = createMenu("系统管理", "system", "C", "/system", null, null, "Tools", 12, null);
+        SysMenu logsMenu = createMenu("日志管理", "logs", "C", "/logs", null, null, "FileText", 13, null);
         
         createMenu("用户管理", "system:user", "F", "/system/users", "views/UserList.vue", systemMenu.getId(), null, 1, "system:user");
         createMenu("角色管理", "system:role", "F", "/system/roles", "views/RoleList.vue", systemMenu.getId(), null, 2, "system:role");
         createMenu("菜单管理", "system:menu", "F", "/system/menus", "views/MenuList.vue", systemMenu.getId(), null, 3, "system:menu");
         createMenu("系统配置", "system:config", "F", "/system/config", "views/SysConfigList.vue", systemMenu.getId(), null, 4, "system:config");
+        createMenu("调度日志", "logs:schedule", "F", "/logs/schedule", "views/ScheduleLogList.vue", logsMenu.getId(), null, 1, "logs:schedule");
+        createMenu("作业日志", "logs:task", "F", "/logs/task-execution", "views/TaskExecutionLogList.vue", logsMenu.getId(), null, 2, "logs:task");
 
         // 为管理员角色分配所有菜单
         for (SysMenu menu : sysMenuRepository.findAll()) {

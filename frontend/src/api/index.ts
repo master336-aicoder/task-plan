@@ -131,7 +131,11 @@ export const workflowApi = {
   release: (id: number) => request.post<ProcessDefinition>(`/process-definitions/${id}/release`),
   offline: (id: number) => request.post<ProcessDefinition>(`/process-definitions/${id}/offline`),
   execute: (id: number) => request.post(`/process-definitions/${id}/execute`),
-  delete: (id: number) => request.delete(`/process-definitions/${id}`)
+  delete: (id: number) => request.delete(`/process-definitions/${id}`),
+  getHistory: (id: number) => request.get(`/process-definitions/${id}/history`),
+  getHistoryVersion: (id: number, version: number) => request.get(`/process-definitions/${id}/history/${version}`),
+  compareWithCurrent: (id: number, version: number) => request.get(`/process-definitions/${id}/history/compare-with-current`, { params: { version } }),
+  rollback: (id: number, version: number) => request.post(`/process-definitions/${id}/history/${version}/rollback`)
 }
 
 export const scheduleApi = {
@@ -153,7 +157,9 @@ export const instanceApi = {
   start: (processDefinitionId: number) => request.post<ProcessInstance>('/process-instances/start', null, { params: { processDefinitionId } }),
   stop: (id: number) => request.post<ProcessInstance>(`/process-instances/${id}/stop`),
   success: (id: number) => request.post<ProcessInstance>(`/process-instances/${id}/success`),
-  fail: (id: number) => request.post<ProcessInstance>(`/process-instances/${id}/fail`)
+  fail: (id: number) => request.post<ProcessInstance>(`/process-instances/${id}/fail`),
+  retry: (id: number) => request.post<ProcessInstance>(`/process-instances/${id}/retry`),
+  delete: (id: number) => request.delete(`/process-instances/${id}`)
 }
 
 export const executionApi = instanceApi
@@ -320,12 +326,18 @@ export const taskTypeApi = {
 
 export interface EnvVariable {
   id?: number
+  configName?: string
   name: string
   value?: string
   description?: string
   category?: string
   createTime?: string
   updateTime?: string
+}
+
+export const scheduleLogApi = {
+  list: (params: { scheduleId?: number; processDefinitionId?: number; logLevel?: string; page?: number; size?: number }) => 
+    request.get('/schedule-logs', { params })
 }
 
 export const envVariableApi = {
@@ -426,4 +438,34 @@ export const menuApi = {
   create: (data: SysMenu) => request.post<SysMenu>('/menus', data),
   update: (id: number, data: SysMenu) => request.put<SysMenu>(`/menus/${id}`, data),
   delete: (id: number) => request.delete(`/menus/${id}`)
+}
+
+export interface TaskExecutionLog {
+  id?: number
+  processInstanceId?: number
+  taskNodeId?: string
+  taskName?: string
+  taskType?: string
+  serverId?: number
+  serverIp?: string
+  startTime?: string
+  endTime?: string
+  duration?: number
+  status?: string
+  output?: string
+  error?: string
+  createTime?: string
+}
+
+export const taskExecutionLogApi = {
+  list: (params: {
+    processInstanceId?: number
+    taskType?: string
+    status?: string
+    serverIp?: string
+    page?: number
+    size?: number
+  }) => request.get('/task-execution-logs', { params }),
+  get: (id: number) => request.get<TaskExecutionLog>(`/task-execution-logs/${id}`),
+  getByProcessInstance: (processInstanceId: number) => request.get<TaskExecutionLog[]>(`/task-execution-logs/process/${processInstanceId}`)
 }

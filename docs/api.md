@@ -6,105 +6,81 @@
 2. [工作流接口](#2-工作流接口)
 3. [任务接口](#3-任务接口)
 4. [调度接口](#4-调度接口)
-5. [文件管理接口](#5-文件管理接口)
-6. [项目管理接口](#6-项目管理接口)
-7. [数据源接口](#7-数据源接口)
-8. [系统管理接口](#8-系统管理接口)
-9. [响应格式](#9-响应格式)
+5. [执行接口](#5-执行接口)
+6. [文件管理接口](#6-文件管理接口)
+7. [项目接口](#7-项目接口)
+8. [数据源接口](#8-数据源接口)
+9. [环境变量接口](#9-环境变量接口)
+10. [服务器节点接口](#10-服务器节点接口)
+11. [系统管理接口](#11-系统管理接口)
+12. [响应格式](#12-响应格式)
+13. [错误码](#13-错误码)
 
 ---
 
 ## 1. 认证接口
 
-### 1.1 POST /api/auth/login
+### 1.1 用户登录
 
-**功能描述**：用户登录
+**POST** `/api/auth/login`
 
-**请求体**：
+请求体：
 ```json
 {
-  "username": "string (必填，用户名)",
-  "password": "string (必填，密码)"
+  "username": "admin",
+  "password": "123456"
 }
 ```
 
-**成功响应** (200)：
+响应体：
 ```json
 {
-  "code": 200,
-  "message": "success",
+  "code": 200000,
+  "msg": "success",
   "data": {
     "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
     "user": {
       "id": 1,
       "username": "admin",
-      "realName": "管理员",
-      "email": "admin@example.com",
-      "phone": "13800138000",
-      "status": 1
+      "nickname": "管理员",
+      "roles": ["admin"]
     }
-  },
-  "timestamp": 1672531200000
+  }
 }
 ```
 
-**失败响应** (401)：
+### 1.2 用户登出
+
+**POST** `/api/auth/logout`
+
+响应体：
 ```json
 {
-  "code": 401,
-  "message": "用户名或密码错误",
-  "data": null,
-  "timestamp": 1672531200000
+  "code": 200000,
+  "msg": "success",
+  "data": null
 }
 ```
 
----
+### 1.3 获取当前用户信息
 
-### 1.2 POST /api/auth/logout
+**GET** `/api/auth/userinfo`
 
-**功能描述**：用户登出
+请求头：`Authorization: Bearer {token}`
 
-**请求头**：
-```
-Authorization: Bearer {token}
-```
-
-**成功响应** (200)：
+响应体：
 ```json
 {
-  "code": 200,
-  "message": "success",
-  "data": null,
-  "timestamp": 1672531200000
-}
-```
-
----
-
-### 1.3 GET /api/auth/me
-
-**功能描述**：获取当前用户信息
-
-**请求头**：
-```
-Authorization: Bearer {token}
-```
-
-**成功响应** (200)：
-```json
-{
-  "code": 200,
-  "message": "success",
+  "code": 200000,
+  "msg": "success",
   "data": {
     "id": 1,
     "username": "admin",
-    "realName": "管理员",
+    "nickname": "管理员",
     "email": "admin@example.com",
-    "phone": "13800138000",
-    "status": 1,
-    "roles": ["ADMIN", "USER"]
-  },
-  "timestamp": 1672531200000
+    "roles": ["admin"],
+    "menus": [...]
+  }
 }
 ```
 
@@ -112,843 +88,651 @@ Authorization: Bearer {token}
 
 ## 2. 工作流接口
 
-### 2.1 GET /api/process-definitions
+### 2.1 获取工作流列表
 
-**功能描述**：获取工作流列表
+**GET** `/api/process-definitions`
 
-**请求参数**：
+查询参数：
+| 参数名 | 类型 | 说明 |
+|--------|------|------|
+| name | String | 工作流名称(模糊查询) |
+| projectId | Long | 项目ID |
+| page | Integer | 页码(默认1) |
+| size | Integer | 每页大小(默认10) |
 
-| 参数名 | 类型 | 必填 | 说明 |
-|--------|------|------|------|
-| name | string | 否 | 工作流名称（模糊搜索） |
-| projectId | number | 否 | 项目ID |
-| page | number | 否 | 页码（默认1） |
-| size | number | 否 | 每页条数（默认20） |
-
-**成功响应** (200)：
+响应体：
 ```json
 {
-  "code": 200,
-  "message": "success",
+  "code": 200000,
+  "msg": "success",
   "data": {
-    "content": [
+    "data": [
       {
         "id": 1,
-        "name": "数据同步工作流",
-        "description": "每日数据同步任务",
+        "name": "数据处理工作流",
+        "description": "每日数据处理任务",
         "projectId": 1,
         "status": 1,
-        "taskCount": 5,
-        "createTime": "2024-01-01 10:00:00",
-        "updateTime": "2024-01-02 15:30:00"
+        "version": 3,
+        "createTime": "2026-05-20 10:00:00",
+        "updateTime": "2026-05-22 15:30:00"
       }
     ],
-    "totalElements": 10,
-    "totalPages": 1,
-    "number": 0,
-    "size": 20
-  },
-  "timestamp": 1672531200000
+    "total": 100
+  }
 }
 ```
 
----
+### 2.2 创建工作流
 
-### 2.2 POST /api/process-definitions
+**POST** `/api/process-definitions`
 
-**功能描述**：创建工作流
-
-**请求头**：
-```
-Authorization: Bearer {token}
-```
-
-**请求体**：
+请求体：
 ```json
 {
-  "name": "string (必填，工作流名称)",
-  "description": "string (选填，描述)",
-  "projectId": "number (必填，项目ID)",
-  "tasks": "[{...}] (选填，任务列表JSON)",
-  "connections": "[{...}] (选填，连接关系JSON)"
+  "name": "新建工作流",
+  "description": "工作流描述",
+  "projectId": 1,
+  "tasks": [],
+  "connections": []
 }
 ```
 
-**成功响应** (200)：
+### 2.3 获取工作流详情
+
+**GET** `/api/process-definitions/{id}`
+
+响应体：
 ```json
 {
-  "code": 200,
-  "message": "success",
+  "code": 200000,
+  "msg": "success",
   "data": {
     "id": 1,
-    "name": "数据同步工作流",
-    "description": "每日数据同步任务",
+    "name": "数据处理工作流",
+    "description": "每日数据处理任务",
     "projectId": 1,
-    "status": 0,
-    "createTime": "2024-01-01 10:00:00",
-    "updateTime": "2024-01-01 10:00:00"
-  },
-  "timestamp": 1672531200000
-}
-```
-
----
-
-### 2.3 GET /api/process-definitions/{id}
-
-**功能描述**：获取工作流详情
-
-**路径参数**：
-
-| 参数名 | 类型 | 必填 | 说明 |
-|--------|------|------|------|
-| id | number | 是 | 工作流ID |
-
-**成功响应** (200)：
-```json
-{
-  "code": 200,
-  "message": "success",
-  "data": {
-    "id": 1,
-    "name": "数据同步工作流",
-    "description": "每日数据同步任务",
-    "projectId": 1,
-    "tasks": "[{\"id\":1,\"name\":\"Task1\",\"type\":\"SHELL\"}]",
-    "connections": "[{\"source\":1,\"target\":2}]",
+    "tasks": [
+      {
+        "id": "task1",
+        "name": "Shell任务",
+        "type": "SHELL",
+        "config": {"script": "echo 'hello'"}
+      }
+    ],
+    "connections": [
+      {"from": "task1", "to": "task2"}
+    ],
     "status": 1,
-    "createTime": "2024-01-01 10:00:00",
-    "updateTime": "2024-01-02 15:30:00"
-  },
-  "timestamp": 1672531200000
+    "version": 3
+  }
 }
 ```
 
-**失败响应** (404)：
+### 2.4 更新工作流
+
+**PUT** `/api/process-definitions/{id}`
+
+请求体：同创建工作流
+
+### 2.5 删除工作流
+
+**DELETE** `/api/process-definitions/{id}`
+
+### 2.6 发布工作流
+
+**POST** `/api/process-definitions/{id}/release`
+
+### 2.7 下线工作流
+
+**POST** `/api/process-definitions/{id}/offline`
+
+### 2.8 获取历史版本列表
+
+**GET** `/api/process-definitions/{id}/history`
+
+响应体：
 ```json
 {
-  "code": 404,
-  "message": "工作流不存在",
-  "data": null,
-  "timestamp": 1672531200000
+  "code": 200000,
+  "msg": "success",
+  "data": [
+    {"id": 1, "version": 3, "createTime": "2026-05-22 15:30:00"},
+    {"id": 2, "version": 2, "createTime": "2026-05-21 10:00:00"},
+    {"id": 3, "version": 1, "createTime": "2026-05-20 09:00:00"}
+  ]
 }
 ```
 
----
+### 2.9 获取指定版本
 
-### 2.4 PUT /api/process-definitions/{id}
+**GET** `/api/process-definitions/{id}/history/{version}`
 
-**功能描述**：更新工作流
+### 2.10 版本对比
 
-**路径参数**：
+**GET** `/api/process-definitions/{id}/history/{version}/compare`
 
-| 参数名 | 类型 | 必填 | 说明 |
-|--------|------|------|------|
-| id | number | 是 | 工作流ID |
-
-**请求体**：
+响应体：
 ```json
 {
-  "name": "string (选填)",
-  "description": "string (选填)",
-  "tasks": "[{...}] (选填)",
-  "connections": "[{...}] (选填)"
-}
-```
-
-**成功响应** (200)：
-```json
-{
-  "code": 200,
-  "message": "success",
+  "code": 200000,
+  "msg": "success",
   "data": {
-    "id": 1,
-    "name": "数据同步工作流(更新)",
-    "description": "更新后的描述",
-    "projectId": 1,
-    "status": 0,
-    "updateTime": "2024-01-03 09:00:00"
-  },
-  "timestamp": 1672531200000
+    "sourceVersion": 2,
+    "targetVersion": 3,
+    "addedTasks": [...],
+    "removedTasks": [...],
+    "modifiedTasks": [...],
+    "addedConnections": [...],
+    "removedConnections": [...]
+  }
 }
 ```
 
----
+### 2.11 版本回滚
 
-### 2.5 DELETE /api/process-definitions/{id}
-
-**功能描述**：删除工作流
-
-**路径参数**：
-
-| 参数名 | 类型 | 必填 | 说明 |
-|--------|------|------|------|
-| id | number | 是 | 工作流ID |
-
-**成功响应** (200)：
-```json
-{
-  "code": 200,
-  "message": "删除成功",
-  "data": null,
-  "timestamp": 1672531200000
-}
-```
-
----
-
-### 2.6 POST /api/process-definitions/{id}/deploy
-
-**功能描述**：发布工作流
-
-**路径参数**：
-
-| 参数名 | 类型 | 必填 | 说明 |
-|--------|------|------|------|
-| id | number | 是 | 工作流ID |
-
-**成功响应** (200)：
-```json
-{
-  "code": 200,
-  "message": "发布成功",
-  "data": {
-    "id": 1,
-    "status": 1
-  },
-  "timestamp": 1672531200000
-}
-```
-
----
-
-### 2.7 POST /api/process-definitions/{id}/start
-
-**功能描述**：启动工作流
-
-**路径参数**：
-
-| 参数名 | 类型 | 必填 | 说明 |
-|--------|------|------|------|
-| id | number | 是 | 工作流ID |
-
-**请求体**：
-```json
-{
-  "params": "{\"key\": \"value\"} (选填，运行参数)"
-}
-```
-
-**成功响应** (200)：
-```json
-{
-  "code": 200,
-  "message": "启动成功",
-  "data": {
-    "processInstanceId": 1001,
-    "status": "RUNNING"
-  },
-  "timestamp": 1672531200000
-}
-```
+**POST** `/api/process-definitions/{id}/history/{version}/rollback`
 
 ---
 
 ## 3. 任务接口
 
-### 3.1 GET /api/task-definitions
+### 3.1 获取任务类型列表
 
-**功能描述**：获取任务列表
+**GET** `/api/task-types`
 
-**请求参数**：
-
-| 参数名 | 类型 | 必填 | 说明 |
-|--------|------|------|------|
-| name | string | 否 | 任务名称 |
-| type | string | 否 | 任务类型 |
-| projectId | number | 否 | 项目ID |
-| page | number | 否 | 页码 |
-| size | number | 否 | 每页条数 |
-
-**成功响应** (200)：
+响应体：
 ```json
 {
-  "code": 200,
-  "message": "success",
-  "data": {
-    "content": [
-      {
-        "id": 1,
-        "name": "数据清洗任务",
-        "type": "SHELL",
-        "projectId": 1,
-        "config": "{\"script\":\"echo hello\"}",
-        "description": "数据清洗脚本",
-        "createTime": "2024-01-01 10:00:00"
-      }
-    ],
-    "totalElements": 50,
-    "totalPages": 3
+  "code": 200000,
+  "msg": "success",
+  "data": [
+    {"type": "SHELL", "label": "Shell脚本", "icon": "terminal"},
+    {"type": "PYTHON", "label": "Python脚本", "icon": "code"},
+    {"type": "SQL", "label": "SQL任务", "icon": "database"},
+    {"type": "HTTP", "label": "HTTP请求", "icon": "globe"},
+    {"type": "SPARK", "label": "Spark任务", "icon": "zap"},
+    {"type": "FLINK", "label": "Flink任务", "icon": "activity"}
+  ]
+}
+```
+
+### 3.2 获取任务定义列表
+
+**GET** `/api/task-definitions`
+
+查询参数：
+| 参数名 | 类型 | 说明 |
+|--------|------|------|
+| name | String | 任务名称 |
+| type | String | 任务类型 |
+| projectId | Long | 项目ID |
+
+### 3.3 创建任务定义
+
+**POST** `/api/task-definitions`
+
+请求体：
+```json
+{
+  "name": "数据清洗任务",
+  "type": "PYTHON",
+  "projectId": 1,
+  "config": {
+    "scriptPath": "/data/scripts/clean.py",
+    "params": ["--input", "/data/input"]
   },
-  "timestamp": 1672531200000
+  "description": "数据清洗脚本"
 }
 ```
-
----
-
-### 3.2 POST /api/task-definitions
-
-**功能描述**：创建任务
-
-**请求体**：
-```json
-{
-  "name": "string (必填)",
-  "type": "string (必填，任务类型)",
-  "projectId": "number (必填)",
-  "config": "string (选填，JSON配置)",
-  "description": "string (选填)"
-}
-```
-
-**成功响应** (200)：
-```json
-{
-  "code": 200,
-  "message": "success",
-  "data": {
-    "id": 1,
-    "name": "数据清洗任务",
-    "type": "SHELL",
-    "projectId": 1
-  },
-  "timestamp": 1672531200000
-}
-```
-
----
-
-### 3.3 GET /api/task-definitions/{id}
-
-**功能描述**：获取任务详情
-
-**成功响应** (200)：
-```json
-{
-  "code": 200,
-  "message": "success",
-  "data": {
-    "id": 1,
-    "name": "数据清洗任务",
-    "type": "SHELL",
-    "projectId": 1,
-    "config": "{\"script\":\"echo hello\"}",
-    "description": "数据清洗脚本",
-    "createTime": "2024-01-01 10:00:00",
-    "updateTime": "2024-01-01 10:00:00"
-  },
-  "timestamp": 1672531200000
-}
-```
-
----
-
-### 3.4 PUT /api/task-definitions/{id}
-
-**功能描述**：更新任务
-
-**请求体**：
-```json
-{
-  "name": "string (选填)",
-  "type": "string (选填)",
-  "config": "string (选填)",
-  "description": "string (选填)"
-}
-```
-
----
-
-### 3.5 DELETE /api/task-definitions/{id}
-
-**功能描述**：删除任务
 
 ---
 
 ## 4. 调度接口
 
-### 4.1 GET /api/schedules
+### 4.1 获取调度列表
 
-**功能描述**：获取调度列表
+**GET** `/api/process-schedules`
 
-**请求参数**：
+查询参数：
+| 参数名 | 类型 | 说明 |
+|--------|------|------|
+| processDefinitionId | Long | 工作流ID |
+| isValid | Integer | 状态(0-禁用,1-启用) |
+| page | Integer | 页码 |
+| size | Integer | 每页大小 |
 
-| 参数名 | 类型 | 必填 | 说明 |
-|--------|------|------|------|
-| processDefinitionId | number | 否 | 工作流ID |
-| status | number | 否 | 状态(0-禁用,1-启用) |
+### 4.2 创建调度
 
-**成功响应** (200)：
+**POST** `/api/process-schedules`
+
+请求体：
 ```json
 {
-  "code": 200,
-  "message": "success",
+  "processDefinitionId": 1,
+  "cronExpression": "0 0 2 * * ?",
+  "startTime": "2026-05-20 00:00:00",
+  "endTime": "2026-12-31 23:59:59",
+  "timezone": "Asia/Shanghai",
+  "isValid": 1
+}
+```
+
+### 4.3 更新调度
+
+**PUT** `/api/process-schedules/{id}`
+
+请求体：同创建调度
+
+### 4.4 删除调度
+
+**DELETE** `/api/process-schedules/{id}`
+
+### 4.5 启用调度
+
+**POST** `/api/process-schedules/{id}/enable`
+
+### 4.6 禁用调度
+
+**POST** `/api/process-schedules/{id}/disable`
+
+---
+
+## 5. 执行接口
+
+### 5.1 获取工作流实例列表
+
+**GET** `/api/process-instances`
+
+查询参数：
+| 参数名 | 类型 | 说明 |
+|--------|------|------|
+| processDefinitionId | Long | 工作流ID |
+| status | String | 状态 |
+| startTime | String | 开始时间 |
+| endTime | String | 结束时间 |
+| page | Integer | 页码 |
+| size | Integer | 每页大小 |
+
+响应体：
+```json
+{
+  "code": 200000,
+  "msg": "success",
+  "data": {
+    "data": [
+      {
+        "id": 1,
+        "processDefinitionId": 1,
+        "processDefinitionName": "数据处理工作流",
+        "status": "RUNNING",
+        "startTime": "2026-05-22 10:00:00",
+        "endTime": null,
+        "taskInstances": [...]
+      }
+    ],
+    "total": 50
+  }
+}
+```
+
+### 5.2 获取工作流实例详情
+
+**GET** `/api/process-instances/{id}`
+
+### 5.3 启动工作流
+
+**POST** `/api/process-instances/start`
+
+请求体：
+```json
+{
+  "processDefinitionId": 1,
+  "params": {}
+}
+```
+
+### 5.4 停止工作流
+
+**POST** `/api/process-instances/{id}/stop`
+
+### 5.5 重试工作流
+
+**POST** `/api/process-instances/{id}/retry`
+
+---
+
+## 6. 文件管理接口
+
+### 6.1 获取目录结构
+
+**GET** `/api/files/directory`
+
+查询参数：
+| 参数名 | 类型 | 说明 |
+|--------|------|------|
+| path | String | 目录路径(默认/) |
+
+响应体：
+```json
+{
+  "code": 200000,
+  "msg": "success",
   "data": [
     {
       "id": 1,
-      "processDefinitionId": 1,
-      "processDefinitionName": "数据同步工作流",
-      "cronExpression": "0 0 2 * * ?",
-      "startTime": "2024-01-01 00:00:00",
-      "endTime": null,
-      "status": 1,
-      "createTime": "2024-01-01 10:00:00"
+      "name": "scripts",
+      "path": "/scripts",
+      "isDirectory": 1,
+      "createTime": "2026-05-20 09:00:00",
+      "updateTime": "2026-05-20 09:00:00"
+    },
+    {
+      "id": 2,
+      "name": "data.txt",
+      "path": "/data.txt",
+      "isDirectory": 0,
+      "size": 1024,
+      "createTime": "2026-05-21 10:00:00",
+      "updateTime": "2026-05-21 11:00:00"
     }
-  ],
-  "timestamp": 1672531200000
+  ]
 }
 ```
 
----
+### 6.2 上传文件
 
-### 4.2 POST /api/schedules
+**POST** `/api/files/upload`
 
-**功能描述**：创建调度
+请求体：`multipart/form-data`
 
-**请求体**：
+| 参数名 | 类型 | 说明 |
+|--------|------|------|
+| file | File | 文件 |
+| path | String | 目标路径 |
+
+### 6.3 获取文件内容
+
+**GET** `/api/files/{id}/content`
+
+### 6.4 更新文件内容
+
+**PUT** `/api/files/{id}/content`
+
+请求体：
 ```json
 {
-  "processDefinitionId": "number (必填)",
-  "cronExpression": "string (必填)",
-  "startTime": "string (选填，格式: yyyy-MM-dd HH:mm:ss)",
-  "endTime": "string (选填)"
+  "content": "file content here..."
 }
 ```
 
----
+### 6.5 删除文件
 
-### 4.3 GET /api/schedules/{id}
-
-**功能描述**：获取调度详情
+**DELETE** `/api/files/{id}`
 
 ---
 
-### 4.4 PUT /api/schedules/{id}
+## 7. 项目接口
 
-**功能描述**：更新调度
+### 7.1 获取项目列表
 
-**请求体**：
+**GET** `/api/projects`
+
+### 7.2 创建项目
+
+**POST** `/api/projects`
+
+请求体：
 ```json
 {
-  "cronExpression": "string (选填)",
-  "startTime": "string (选填)",
-  "endTime": "string (选填)"
+  "name": "数据分析项目",
+  "description": "用于数据分析的项目",
+  "owner": "admin"
 }
 ```
 
----
+### 7.3 更新项目
 
-### 4.5 DELETE /api/schedules/{id}
+**PUT** `/api/projects/{id}`
 
-**功能描述**：删除调度
+### 7.4 删除项目
 
----
-
-### 4.6 POST /api/schedules/{id}/enable
-
-**功能描述**：启用调度
+**DELETE** `/api/projects/{id}`
 
 ---
 
-### 4.7 POST /api/schedules/{id}/disable
+## 8. 数据源接口
 
-**功能描述**：禁用调度
+### 8.1 获取数据源列表
 
----
+**GET** `/api/datasources`
 
-## 5. 文件管理接口
+### 8.2 创建数据源
 
-### 5.1 GET /api/files
+**POST** `/api/datasources`
 
-**功能描述**：获取文件列表
-
-**请求参数**：
-
-| 参数名 | 类型 | 必填 | 说明 |
-|--------|------|------|------|
-| name | string | 否 | 文件名 |
-| type | string | 否 | 文件类型 |
-| projectId | number | 否 | 项目ID |
-
----
-
-### 5.2 POST /api/files/upload
-
-**功能描述**：上传文件
-
-**请求体** (multipart/form-data)：
-
-| 参数名 | 类型 | 必填 | 说明 |
-|--------|------|------|------|
-| file | File | 是 | 文件 |
-| projectId | number | 否 | 项目ID |
-
-**成功响应** (200)：
+请求体：
 ```json
 {
-  "code": 200,
-  "message": "上传成功",
+  "name": "MySQL数据源",
+  "type": "MYSQL",
+  "host": "localhost",
+  "port": 3306,
+  "database": "task_plan_db",
+  "username": "admin",
+  "password": "password",
+  "projectId": 1
+}
+```
+
+### 8.3 更新数据源
+
+**PUT** `/api/datasources/{id}`
+
+### 8.4 删除数据源
+
+**DELETE** `/api/datasources/{id}`
+
+### 8.5 测试数据源连接
+
+**POST** `/api/datasources/{id}/test`
+
+---
+
+## 9. 环境变量接口
+
+### 9.1 获取环境变量列表
+
+**GET** `/api/env-variables`
+
+查询参数：
+| 参数名 | 类型 | 说明 |
+|--------|------|------|
+| name | String | 变量名 |
+| category | String | 分类 |
+| page | Integer | 页码 |
+| size | Integer | 每页大小 |
+
+响应体：
+```json
+{
+  "code": 200000,
+  "msg": "success",
   "data": {
-    "id": 1,
-    "name": "script.sh",
-    "path": "/uploads/script.sh",
-    "size": 1024,
-    "type": "SHELL",
-    "createTime": "2024-01-01 10:00:00"
-  },
-  "timestamp": 1672531200000
-}
-```
-
----
-
-### 5.3 GET /api/files/{id}
-
-**功能描述**：获取文件详情
-
----
-
-### 5.4 DELETE /api/files/{id}
-
-**功能描述**：删除文件
-
----
-
-### 5.5 GET /api/files/{id}/content
-
-**功能描述**：获取文件内容
-
-**成功响应** (200)：
-```json
-{
-  "code": 200,
-  "message": "success",
-  "data": {
-    "id": 1,
-    "name": "script.sh",
-    "content": "#!/bin/bash\necho \"Hello World\"",
-    "size": 26
-  },
-  "timestamp": 1672531200000
-}
-```
-
----
-
-### 5.6 PUT /api/files/{id}/content
-
-**功能描述**：更新文件内容
-
-**请求体**：
-```json
-{
-  "content": "string (必填，文件内容)"
-}
-```
-
----
-
-### 5.7 GET /api/files/directory
-
-**功能描述**：获取目录结构
-
-**请求参数**：
-
-| 参数名 | 类型 | 必填 | 说明 |
-|--------|------|------|------|
-| parentId | number | 否 | 父目录ID（null表示根目录） |
-
-**成功响应** (200)：
-```json
-{
-  "code": 200,
-  "message": "success",
-  "data": {
-    "directories": [
+    "data": [
       {
         "id": 1,
-        "name": "shell",
-        "isDirectory": 1,
-        "parentId": null,
-        "createTime": "2024-01-01 10:00:00"
+        "configName": "数据库配置",
+        "name": "DB_HOST",
+        "value": "localhost",
+        "category": "DATABASE",
+        "description": "数据库主机地址"
       }
     ],
-    "files": [
-      {
-        "id": 2,
-        "name": "test.sh",
-        "isDirectory": 0,
-        "parentId": null,
-        "size": 100,
-        "createTime": "2024-01-01 10:00:00"
-      }
-    ]
-  },
+    "total": 20
+  }
+}
+```
+
+### 9.2 创建环境变量
+
+**POST** `/api/env-variables`
+
+请求体：
+```json
+{
+  "configName": "数据库配置",
+  "name": "DB_PORT",
+  "value": "3306",
+  "category": "DATABASE",
+  "description": "数据库端口"
+}
+```
+
+### 9.3 更新环境变量
+
+**PUT** `/api/env-variables/{id}`
+
+### 9.4 删除环境变量
+
+**DELETE** `/api/env-variables/{id}`
+
+---
+
+## 10. 服务器节点接口
+
+### 10.1 获取服务器列表
+
+**GET** `/api/server-nodes`
+
+### 10.2 创建服务器
+
+**POST** `/api/server-nodes`
+
+请求体：
+```json
+{
+  "name": "生产服务器",
+  "ip": "192.168.1.100",
+  "port": 22,
+  "username": "root",
+  "password": "password",
+  "description": "生产环境服务器"
+}
+```
+
+### 10.3 更新服务器
+
+**PUT** `/api/server-nodes/{id}`
+
+### 10.4 删除服务器
+
+**DELETE** `/api/server-nodes/{id}`
+
+### 10.5 测试SSH连接
+
+**POST** `/api/server-nodes/{id}/test`
+
+---
+
+## 11. 系统管理接口
+
+### 11.1 用户管理
+
+| API路径 | HTTP方法 | 功能描述 |
+|---------|----------|----------|
+| `/api/users` | GET | 获取用户列表 |
+| `/api/users` | POST | 创建用户 |
+| `/api/users/{id}` | GET | 获取用户详情 |
+| `/api/users/{id}` | PUT | 更新用户 |
+| `/api/users/{id}` | DELETE | 删除用户 |
+| `/api/users/{id}/roles` | GET | 获取用户角色 |
+| `/api/users/{id}/roles` | PUT | 更新用户角色 |
+
+### 11.2 角色管理
+
+| API路径 | HTTP方法 | 功能描述 |
+|---------|----------|----------|
+| `/api/roles` | GET | 获取角色列表 |
+| `/api/roles` | POST | 创建角色 |
+| `/api/roles/{id}` | PUT | 更新角色 |
+| `/api/roles/{id}` | DELETE | 删除角色 |
+| `/api/roles/{id}/menus` | GET | 获取角色菜单 |
+| `/api/roles/{id}/menus` | PUT | 更新角色菜单 |
+
+### 11.3 菜单管理
+
+| API路径 | HTTP方法 | 功能描述 |
+|---------|----------|----------|
+| `/api/menus` | GET | 获取菜单列表 |
+| `/api/menus` | POST | 创建菜单 |
+| `/api/menus/{id}` | PUT | 更新菜单 |
+| `/api/menus/{id}` | DELETE | 删除菜单 |
+
+### 11.4 系统配置
+
+| API路径 | HTTP方法 | 功能描述 |
+|---------|----------|----------|
+| `/api/system-config` | GET | 获取系统配置 |
+| `/api/system-config` | PUT | 更新系统配置 |
+
+---
+
+## 12. 响应格式
+
+### 12.1 成功响应
+
+```json
+{
+  "code": 200000,
+  "msg": "success",
+  "data": {...},
   "timestamp": 1672531200000
 }
 ```
 
----
-
-## 6. 项目管理接口
-
-### 6.1 GET /api/projects
-
-**功能描述**：获取项目列表
-
----
-
-### 6.2 POST /api/projects
-
-**功能描述**：创建项目
-
-**请求体**：
-```json
-{
-  "name": "string (必填)",
-  "description": "string (选填)"
-}
-```
-
----
-
-### 6.3 GET /api/projects/{id}
-
-**功能描述**：获取项目详情
-
----
-
-### 6.4 PUT /api/projects/{id}
-
-**功能描述**：更新项目
-
----
-
-### 6.5 DELETE /api/projects/{id}
-
-**功能描述**：删除项目
-
----
-
-## 7. 数据源接口
-
-### 7.1 GET /api/datasources
-
-**功能描述**：获取数据源列表
-
----
-
-### 7.2 POST /api/datasources
-
-**功能描述**：创建数据源
-
-**请求体**：
-```json
-{
-  "name": "string (必填)",
-  "type": "string (必填，如: MYSQL, POSTGRESQL)",
-  "host": "string (必填)",
-  "port": "number (必填)",
-  "database": "string (必填)",
-  "username": "string (必填)",
-  "password": "string (必填)",
-  "projectId": "number (选填)"
-}
-```
-
----
-
-### 7.3 GET /api/datasources/{id}
-
-**功能描述**：获取数据源详情
-
----
-
-### 7.4 PUT /api/datasources/{id}
-
-**功能描述**：更新数据源
-
----
-
-### 7.5 DELETE /api/datasources/{id}
-
-**功能描述**：删除数据源
-
----
-
-### 7.6 POST /api/datasources/{id}/test
-
-**功能描述**：测试数据源连接
-
-**成功响应** (200)：
-```json
-{
-  "code": 200,
-  "message": "连接成功",
-  "data": null,
-  "timestamp": 1672531200000
-}
-```
-
----
-
-## 8. 系统管理接口
-
-### 8.1 用户管理
-
-#### GET /api/users
-#### POST /api/users
-#### GET /api/users/{id}
-#### PUT /api/users/{id}
-#### DELETE /api/users/{id}
-
-**创建用户请求体**：
-```json
-{
-  "username": "string (必填)",
-  "password": "string (必填)",
-  "realName": "string (选填)",
-  "email": "string (选填)",
-  "phone": "string (选填)",
-  "status": "number (选填，默认1)"
-}
-```
-
-#### GET /api/users/{id}/roles
-**功能描述**：获取用户角色
-
-#### POST /api/users/{id}/roles
-**功能描述**：分配角色
-
-**请求体**：
-```json
-{
-  "roleIds": "[number] (角色ID列表)"
-}
-```
-
----
-
-### 8.2 角色管理
-
-#### GET /api/roles
-#### POST /api/roles
-#### GET /api/roles/{id}
-#### PUT /api/roles/{id}
-#### DELETE /api/roles/{id}
-
-**创建角色请求体**：
-```json
-{
-  "name": "string (必填)",
-  "code": "string (必填)",
-  "description": "string (选填)"
-}
-```
-
----
-
-### 8.3 菜单管理
-
-#### GET /api/menus
-#### POST /api/menus
-#### PUT /api/menus/{id}
-
-**创建菜单请求体**：
-```json
-{
-  "name": "string (必填)",
-  "path": "string (选填)",
-  "icon": "string (选填)",
-  "parentId": "number (选填)",
-  "sortOrder": "number (选填)",
-  "type": "number (选填，0-菜单,1-按钮)"
-}
-```
-
----
-
-### 8.4 系统配置
-
-#### GET /api/configs
-#### POST /api/configs
-#### PUT /api/configs/{id}
-
-**创建配置请求体**：
-```json
-{
-  "configKey": "string (必填)",
-  "configValue": "string (必填)",
-  "description": "string (选填)"
-}
-```
-
----
-
-## 9. 响应格式
-
-### 9.1 成功响应
+### 12.2 分页响应
 
 ```json
 {
-  "code": 200,
-  "message": "success",
-  "data": {},
-  "timestamp": 1672531200000
-}
-```
-
-### 9.2 分页响应
-
-```json
-{
-  "code": 200,
-  "message": "success",
+  "code": 200000,
+  "msg": "success",
   "data": {
-    "content": [],
-    "totalElements": 100,
-    "totalPages": 5,
-    "number": 0,
-    "size": 20
+    "data": [...],
+    "total": 100
   },
   "timestamp": 1672531200000
 }
 ```
 
-### 9.3 错误响应
+### 12.3 失败响应
 
 ```json
 {
-  "code": 400,
-  "message": "错误描述信息",
+  "code": 500000,
+  "msg": "系统错误: 错误信息",
   "data": null,
   "timestamp": 1672531200000
 }
 ```
 
-### 9.4 状态码说明
+---
 
-| 状态码 | 含义 |
-|--------|------|
-| 200 | 成功 |
-| 400 | 请求参数错误 |
-| 401 | 未认证 |
-| 403 | 无权限 |
-| 404 | 资源不存在 |
-| 500 | 服务器内部错误 |
+## 13. 错误码
+
+| 错误码 | 含义 | 说明 |
+|--------|------|------|
+| 200000 | 成功 | 操作成功 |
+| 400000 | 请求参数错误 | 参数校验失败 |
+| 401000 | 未认证 | 用户未登录或Token过期 |
+| 403000 | 无权限 | 用户无操作权限 |
+| 404000 | 资源不存在 | 请求的资源不存在 |
+| 500000 | 服务器内部错误 | 系统异常 |
+| 500001 | 数据库错误 | 数据库操作失败 |
+| 500002 | 文件操作失败 | 文件上传/下载失败 |
+| 500003 | SSH连接失败 | 远程服务器连接失败 |
 
 ---
 
-**文档版本**: v1.0  
-**创建日期**: 2026-05-20  
-**最后更新**: 2026-05-20
+**文档版本**: v1.1  
+**最后更新**: 2026-05-22

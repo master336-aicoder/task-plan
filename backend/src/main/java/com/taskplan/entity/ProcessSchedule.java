@@ -1,5 +1,6 @@
 package com.taskplan.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;
 import javax.persistence.*;
 import java.time.LocalDateTime;
@@ -7,6 +8,7 @@ import java.time.LocalDateTime;
 @Data
 @Entity
 @Table(name = "t_process_schedule")
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class ProcessSchedule {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

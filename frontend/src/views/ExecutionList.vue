@@ -33,9 +33,25 @@
           <el-button @click="handleReset">重置</el-button>
         </el-form-item>
       </el-form>
+      <div class="flex gap-4 flex-wrap justify-end mt-2">
+        <el-button v-if="selectedIds.length > 0" type="warning" @click="batchStop" :loading="batchLoading">
+          批量停止
+        </el-button>
+        <el-button v-if="selectedIds.length > 0" type="success" @click="batchRetry" :loading="batchLoading">
+          批量重试
+        </el-button>
+        <el-popconfirm v-if="selectedIds.length > 0" title="确定要批量删除选中的执行记录吗？" @confirm="batchDelete">
+          <template #reference>
+            <el-button type="danger" :loading="batchLoading">
+              批量删除
+            </el-button>
+          </template>
+        </el-popconfirm>
+      </div>
     </div>
 
-    <el-table :data="executions" border v-loading="loading" stripe>
+    <el-table :data="executions" border v-loading="loading" stripe @select-all="handleSelectAll" @select="handleSelect">
+      <el-table-column type="selection" width="55" />
       <el-table-column prop="id" label="ID" width="80" />
       <el-table-column prop="processDefinitionName" label="工作流名称" min-width="150" />
       <el-table-column prop="startTime" label="开始时间" width="180" />
@@ -47,10 +63,11 @@
         </template>
       </el-table-column>
       <el-table-column prop="host" label="执行主机" width="120" />
-      <el-table-column label="操作" width="200" fixed="right">
+      <el-table-column label="操作" width="240" fixed="right">
         <template #default="{ row }">
           <el-button size="small" @click="viewDetail(row)">详情</el-button>
-          <el-button v-if="row.state === 'RUNNING'" size="small" type="danger" @click="stopExecution(row)">停止</el-button>
+          <el-button v-if="row.state === 'RUNNING_EXECUTION'" size="small" type="danger" @click="stopExecution(row)">停止</el-button>
+          <el-button v-if="canRetry(row.state)" size="small" type="success" @click="retryExecution(row)">重试</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -93,9 +110,30 @@
                 <el-tag :type="getStateTagType(row.state)">{{ getStateLabel(row.state) }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="log" label="日志" min-width="300" show-overflow-tooltip />
+            <el-table-column prop="serverIp" label="执行服务器" />
+            <el-table-column label="日志" min-width="200">
+              <template #default="{ row }">
+                <el-button size="small" @click="showTaskLog(row)">查看日志</el-button>
+              </template>
+            </el-table-column>
           </el-table>
         </div>
+        
+        <el-dialog v-model="taskLogVisible" title="任务日志详情" width="800px">
+          <div v-if="currentTaskLog" class="task-log-detail">
+            <div class="log-section">
+              <h4>输出内容</h4>
+              <pre class="log-content">{{ currentTaskLog.log || '无输出内容' }}</pre>
+            </div>
+            <div v-if="currentTaskLog.error" class="log-section">
+              <h4>错误信息</h4>
+              <pre class="log-content error">{{ currentTaskLog.error }}</pre>
+            </div>
+          </div>
+          <template #footer>
+            <el-button @click="taskLogVisible = false">关闭</el-button>
+          </template>
+        </el-dialog>
       </div>
       <template #footer>
         <el-button @click="detailVisible = false">关闭</el-button>
@@ -115,6 +153,9 @@ const workflows = ref<ProcessDefinition[]>([])
 const loading = ref(false)
 const detailVisible = ref(false)
 const detailData = ref<any>(null)
+const batchLoading = ref(false)
+const taskLogVisible = ref(false)
+const currentTaskLog = ref<any>(null)
 
 const queryForm = ref({
   projectId: undefined as number | undefined,
@@ -126,27 +167,32 @@ const queryForm = ref({
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
+const selectedIds = ref<number[]>([])
 
 const stateLabels: Record<string, string> = {
-  RUNNING: '运行中',
+  RUNNING_EXECUTION: '运行中',
   SUCCESS: '成功',
   FAILURE: '失败',
-  WAITING: '等待',
-  STOPPED: '已停止',
+  PENDING: '等待',
+  STOP: '已停止',
   TIMEOUT: '超时'
 }
 
 const stateTagTypes: Record<string, string> = {
-  RUNNING: 'warning',
+  RUNNING_EXECUTION: 'warning',
   SUCCESS: 'success',
   FAILURE: 'danger',
-  WAITING: 'info',
-  STOPPED: 'default',
+  PENDING: 'info',
+  STOP: 'default',
   TIMEOUT: 'danger'
 }
 
 const getStateLabel = (state: string) => stateLabels[state] || state
 const getStateTagType = (state: string) => stateTagTypes[state] || 'default'
+
+const canRetry = (state: string) => {
+  return ['FAILURE', 'STOP', 'TIMEOUT'].includes(state)
+}
 
 const loadProjects = async () => {
   try {
@@ -208,16 +254,16 @@ const loadExecutions = async () => {
       size: pageSize.value
     })
     
-    const data = res.data?.data || []
+    const data = res.data || []
     const workflowMap = new Map()
     workflows.value.forEach(w => workflowMap.set(w.id, w.name))
     
     executions.value = data.map((e: any) => ({
       ...e,
-      processDefinitionDefinitionName: workflowMap.get(e.processDefinitionId) || '未知',
+      processDefinitionName: workflowMap.get(e.processDefinitionId) || e.processName || '未知',
       duration: calculateDuration(e.startTime, e.endTime)
     }))
-    total.value = res.data?.total || 0
+    total.value = res.total || 0
   } catch (error) {
     ElMessage.error('加载执行记录失败')
   } finally {
@@ -252,6 +298,11 @@ const viewDetail = async (execution: any) => {
   }
 }
 
+const showTaskLog = (task: any) => {
+  currentTaskLog.value = task
+  taskLogVisible.value = true
+}
+
 const stopExecution = async (execution: any) => {
   try {
     await executionApi.stop(execution.id)
@@ -259,6 +310,91 @@ const stopExecution = async (execution: any) => {
     loadExecutions()
   } catch (error) {
     ElMessage.error('停止失败')
+  }
+}
+
+const handleSelectAll = (val: any[]) => {
+  selectedIds.value = val.map((item: any) => item.id)
+}
+
+const handleSelect = (val: any[], row: any) => {
+  const idx = selectedIds.value.indexOf(row.id)
+  if (idx > -1) {
+    selectedIds.value.splice(idx, 1)
+  } else {
+    selectedIds.value.push(row.id)
+  }
+}
+
+const batchStop = async () => {
+  batchLoading.value = true
+  try {
+    for (const id of selectedIds.value) {
+      await executionApi.stop(id)
+    }
+    ElMessage.success(`成功停止 ${selectedIds.value.length} 个执行记录`)
+    selectedIds.value = []
+    loadExecutions()
+  } catch (error) {
+    ElMessage.error('批量停止失败')
+  } finally {
+    batchLoading.value = false
+  }
+}
+
+const batchDelete = async () => {
+  batchLoading.value = true
+  try {
+    for (const id of selectedIds.value) {
+      await executionApi.delete(id)
+    }
+    ElMessage.success(`成功删除 ${selectedIds.value.length} 个执行记录`)
+    selectedIds.value = []
+    loadExecutions()
+  } catch (error) {
+    ElMessage.error('批量删除失败')
+  } finally {
+    batchLoading.value = false
+  }
+}
+
+const retryExecution = async (execution: any) => {
+  try {
+    await executionApi.retry(execution.id)
+    ElMessage.success('重试成功')
+    loadExecutions()
+  } catch (error) {
+    ElMessage.error('重试失败')
+  }
+}
+
+const batchRetry = async () => {
+  batchLoading.value = true
+  const retryableIds = []
+  for (const id of selectedIds.value) {
+    const execution = executions.value.find(e => e.id === id)
+    if (execution && canRetry(execution.state)) {
+      retryableIds.push(id)
+    }
+  }
+  
+  if (retryableIds.length === 0) {
+    ElMessage.warning('没有可重试的执行记录（仅失败、已停止、超时的任务可以重试）')
+    batchLoading.value = false
+    return
+  }
+  
+  try {
+    for (const id of retryableIds) {
+      await executionApi.retry(id)
+    }
+    ElMessage.success(`成功重试 ${retryableIds.length} 个执行记录`)
+    selectedIds.value = []
+    loadExecutions()
+  } catch (error) {
+    ElMessage.error('批量重试失败')
+  } finally {
+    batchLoading.value = false
   }
 }
 
@@ -278,5 +414,40 @@ onMounted(async () => {
 .detail-section h3 {
   margin-bottom: 12px;
   font-weight: bold;
+}
+
+.task-log-detail {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.log-section {
+  margin-bottom: 16px;
+}
+
+.log-section h4 {
+  margin-bottom: 8px;
+  font-weight: bold;
+  color: #606266;
+}
+
+.log-content {
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-family: monospace;
+  font-size: 13px;
+  color: #303133;
+}
+
+.log-content.error {
+  background: #fff5f5;
+  border-color: #f56c6c;
+  color: #f56c6c;
 }
 </style>

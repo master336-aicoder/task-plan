@@ -76,6 +76,10 @@
     </el-dialog>
 
     <el-dialog v-model="roleDialogVisible" title="分配角色" width="400px">
+      <div class="mb-3">
+        <el-button size="small" type="primary" @click="selectAllRoles">全选</el-button>
+        <el-button size="small" type="info" @click="deselectAllRoles" class="ml-2">全部不选</el-button>
+      </div>
       <el-checkbox-group v-model="selectedRoleIds">
         <el-checkbox v-for="role in roles" :key="role.id" :label="role.id">
           {{ role.roleName }} ({{ role.roleCode }})
@@ -211,6 +215,14 @@ const showRoles = async (user: SysUser) => {
     console.error('加载用户角色失败:', error)
     ElMessage.error('加载用户角色失败: ' + (error?.message || '未知错误'))
   }
+}
+
+const selectAllRoles = () => {
+  selectedRoleIds.value = roles.value.map(r => r.id!)
+}
+
+const deselectAllRoles = () => {
+  selectedRoleIds.value = []
 }
 
 const submitRoles = async () => {

@@ -51,6 +51,7 @@ public class SysMenuService {
                     return m1.getSortOrder().compareTo(m2.getSortOrder());
                 })
                 .peek(menu -> {
+                    menu.setChildren(null);
                     List<SysMenu> children = buildMenuTree(allMenus, menu.getId());
                     if (!children.isEmpty()) {
                         menu.setChildren(children);
