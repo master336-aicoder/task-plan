@@ -90,4 +90,10 @@ public class ServerNodeController {
         }
         return Result.success(result);
     }
+
+    @PutMapping("/{id}/env-script")
+    public Result<ServerNode> updateEnvScript(@PathVariable Long id, @RequestBody Map<String, String> request) {
+        String envScript = request.get("envScript");
+        return Result.success(serverNodeService.updateEnvScript(id, envScript));
+    }
 }

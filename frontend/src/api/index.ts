@@ -291,7 +291,8 @@ export const serverApi = {
   update: (id: number, data: ServerNode) => request.put<ServerNode>(`/servers/${id}`, data),
   delete: (id: number) => request.delete(`/servers/${id}`),
   ping: (id: number) => request.post<boolean>(`/servers/${id}/ping`),
-  testConnection: (data: ServerNode) => request.post('/servers/test-connection', data)
+  testConnection: (data: ServerNode) => request.post('/servers/test-connection', data),
+  updateEnvScript: (id: number, data: { envScript: string }) => request.put<ServerNode>(`/servers/${id}/env-script`, data)
 }
 
 export const fileApi = {
@@ -324,15 +325,26 @@ export const taskTypeApi = {
   delete: (id: number) => request.delete(`/task-types/${id}`)
 }
 
+export interface EnvConfigGroup {
+  id?: number
+  name: string
+  description?: string
+  owner?: string
+  createTime?: string
+  updateTime?: string
+  variableCount?: number
+}
+
 export interface EnvVariable {
   id?: number
-  configName?: string
+  groupId?: number
   name: string
   value?: string
   description?: string
-  category?: string
   createTime?: string
   updateTime?: string
+  _isNew?: boolean
+  _editing?: boolean
 }
 
 export const scheduleLogApi = {
@@ -340,14 +352,25 @@ export const scheduleLogApi = {
     request.get('/schedule-logs', { params })
 }
 
+export const envConfigGroupApi = {
+  list: () => request.get<EnvConfigGroup[]>('/env-config-groups'),
+  get: (id: number) => request.get<EnvConfigGroup>(`/env-config-groups/${id}`),
+  create: (data: EnvConfigGroup) => request.post<EnvConfigGroup>('/env-config-groups', data),
+  update: (id: number, data: EnvConfigGroup) => request.put<EnvConfigGroup>(`/env-config-groups/${id}`, data),
+  delete: (id: number) => request.delete(`/env-config-groups/${id}`)
+}
+
 export const envVariableApi = {
   list: (params?: { name?: string; page?: number; size?: number }) => request.get('/env-variables', { params }),
   listAll: () => request.get<EnvVariable[]>('/env-variables/all'),
-  listByCategory: (category: string) => request.get<EnvVariable[]>(`/env-variables/category/${category}`),
+  listByGroupId: (groupId: number) => request.get<EnvVariable[]>(`/env-variables/group/${groupId}`),
+  listByGroupIds: (groupIds: number[]) => request.post<EnvVariable[]>('/env-variables/groups', groupIds),
   get: (id: number) => request.get<EnvVariable>(`/env-variables/${id}`),
   create: (data: EnvVariable) => request.post<EnvVariable>('/env-variables', data),
+  createBatch: (data: EnvVariable[]) => request.post<EnvVariable[]>('/env-variables/batch', data),
   update: (id: number, data: EnvVariable) => request.put<EnvVariable>(`/env-variables/${id}`, data),
-  delete: (id: number) => request.delete(`/env-variables/${id}`)
+  delete: (id: number) => request.delete(`/env-variables/${id}`),
+  deleteByGroupId: (groupId: number) => request.delete(`/env-variables/group/${groupId}`)
 }
 
 export interface LoginForm {

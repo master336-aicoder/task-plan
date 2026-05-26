@@ -224,17 +224,29 @@ CREATE TABLE IF NOT EXISTS datasource (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='数据源表';
 
 -- ==============================================
+-- 环境变量配置组表
+-- ==============================================
+CREATE TABLE IF NOT EXISTS t_env_config_group (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    name VARCHAR(200) NOT NULL UNIQUE COMMENT '配置组名称',
+    description VARCHAR(500) NULL COMMENT '配置组描述',
+    owner VARCHAR(100) NULL COMMENT '负责人',
+    create_time DATETIME NOT NULL COMMENT '创建时间',
+    update_time DATETIME NOT NULL COMMENT '更新时间'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='环境变量配置组表';
+
+-- ==============================================
 -- 环境变量表
 -- ==============================================
 CREATE TABLE IF NOT EXISTS t_env_variable (
     id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
-    config_name VARCHAR(200) NULL COMMENT '配置名称',
+    group_id BIGINT NULL COMMENT '关联配置组ID',
     name VARCHAR(200) NOT NULL COMMENT '变量名',
     value VARCHAR(500) NULL COMMENT '变量值',
-    category VARCHAR(100) NULL COMMENT '分类',
     description VARCHAR(500) NULL COMMENT '描述',
     create_time DATETIME NOT NULL COMMENT '创建时间',
-    update_time DATETIME NOT NULL COMMENT '更新时间'
+    update_time DATETIME NOT NULL COMMENT '更新时间',
+    FOREIGN KEY (group_id) REFERENCES t_env_config_group(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='环境变量表';
 
 -- ==============================================

@@ -3,23 +3,24 @@ package com.taskplan.controller;
 import com.taskplan.common.Result;
 import com.taskplan.entity.EnvVariable;
 import com.taskplan.service.EnvVariableService;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/env-variables")
+@RequiredArgsConstructor
 public class EnvVariableController {
 
-    @Autowired
-    private EnvVariableService envVariableService;
+    private final EnvVariableService envVariableService;
 
     @GetMapping
     public Result<Map<String, Object>> listEnvVariables(
@@ -40,9 +41,14 @@ public class EnvVariableController {
         return Result.success(envVariableService.listAll());
     }
 
-    @GetMapping("/category/{category}")
-    public Result<List<EnvVariable>> listByCategory(@PathVariable String category) {
-        return Result.success(envVariableService.listByCategory(category));
+    @GetMapping("/group/{groupId}")
+    public Result<List<EnvVariable>> listByGroupId(@PathVariable Long groupId) {
+        return Result.success(envVariableService.listByGroupId(groupId));
+    }
+
+    @PostMapping("/groups")
+    public Result<List<EnvVariable>> listByGroupIds(@RequestBody List<Long> groupIds) {
+        return Result.success(envVariableService.listByGroupIds(groupIds));
     }
 
     @GetMapping("/{id}")
@@ -55,6 +61,19 @@ public class EnvVariableController {
         return Result.success(envVariableService.createEnvVariable(envVariable));
     }
 
+    @PostMapping("/batch")
+    public Result<List<EnvVariable>> createEnvVariables(@RequestBody List<EnvVariable> envVariables) {
+        List<EnvVariable> saved = new ArrayList<>();
+        for (EnvVariable envVariable : envVariables) {
+            if (envVariable.getId() != null) {
+                saved.add(envVariableService.updateEnvVariable(envVariable.getId(), envVariable));
+            } else {
+                saved.add(envVariableService.createEnvVariable(envVariable));
+            }
+        }
+        return Result.success(saved);
+    }
+
     @PutMapping("/{id}")
     public Result<EnvVariable> updateEnvVariable(@PathVariable Long id, @RequestBody EnvVariable envVariable) {
         return Result.success(envVariableService.updateEnvVariable(id, envVariable));
@@ -63,6 +82,12 @@ public class EnvVariableController {
     @DeleteMapping("/{id}")
     public Result<Void> deleteEnvVariable(@PathVariable Long id) {
         envVariableService.deleteEnvVariable(id);
+        return Result.success();
+    }
+
+    @DeleteMapping("/group/{groupId}")
+    public Result<Void> deleteByGroupId(@PathVariable Long groupId) {
+        envVariableService.deleteByGroupId(groupId);
         return Result.success();
     }
 }

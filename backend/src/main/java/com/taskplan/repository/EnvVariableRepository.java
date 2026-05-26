@@ -13,9 +13,15 @@ public interface EnvVariableRepository extends JpaRepository<EnvVariable, Long> 
 
     Page<EnvVariable> findByNameContaining(String name, Pageable pageable);
 
-    List<EnvVariable> findByCategory(String category);
-
     List<EnvVariable> findAll();
 
-    boolean existsByName(String name);
+    boolean existsByNameAndGroupId(String name, Long groupId);
+
+    List<EnvVariable> findByGroupId(Long groupId);
+
+    List<EnvVariable> findByGroupIdIn(List<Long> groupIds);
+
+    void deleteByGroupId(Long groupId);
+
+long countByGroupId(Long groupId);
 }

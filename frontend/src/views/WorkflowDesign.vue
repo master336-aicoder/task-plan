@@ -158,8 +158,27 @@
                 <el-option v-for="ds in datasources" :key="ds.id" :label="ds.name" :value="ds.id" />
               </el-select>
             </el-form-item>
-            <el-form-item label="SQL语句">
-              <el-input v-model="detailForm.sql" type="textarea" :rows="5" :placeholder="sqlPlaceholder" />
+            <el-form-item label="脚本来源">
+              <el-radio-group v-model="scriptSource" class="block">
+                <el-radio :label="'file'">脚本文件</el-radio>
+                <el-radio :label="'content'">脚本内容</el-radio>
+              </el-radio-group>
+            </el-form-item>
+            <el-form-item v-if="scriptSource === 'file'" label="脚本文件">
+              <el-input 
+                :value="selectedFileName" 
+                placeholder="请选择脚本文件" 
+                readonly 
+                class="w-full cursor-pointer"
+                @click="showFileSelector = true"
+              />
+              <span class="file-select-hint">点击选择文件</span>
+            </el-form-item>
+            <el-form-item v-if="scriptSource === 'content'" label="SQL语句">
+              <div class="flex gap-2">
+                <el-input v-model="detailForm.sql" type="textarea" :rows="8" :placeholder="sqlPlaceholder" class="flex-1" />
+                <el-button type="primary" @click="openSqlEditor">编辑SQL</el-button>
+              </div>
             </el-form-item>
           </template>
 
@@ -187,12 +206,16 @@
               <span class="file-select-hint">点击选择文件</span>
             </el-form-item>
             <el-form-item v-if="scriptSource === 'content'" label="脚本内容">
-              <el-input 
-                v-model="detailForm.script" 
-                type="textarea" 
-                :rows="6" 
-                :placeholder="scriptPlaceholder"
-              />
+              <div class="flex gap-2">
+                <el-input 
+                  v-model="detailForm.script" 
+                  type="textarea" 
+                  :rows="6" 
+                  :placeholder="scriptPlaceholder"
+                  class="flex-1"
+                />
+                <el-button type="primary" @click="openScriptEditor">编辑脚本</el-button>
+              </div>
             </el-form-item>
             <el-form-item label="任务类型配置">
               <el-select v-model="detailForm.taskTypeId" class="w-full">
@@ -216,10 +239,10 @@
               <el-input v-model="detailForm.programArgs" type="textarea" :rows="3" :placeholder="programArgsPlaceholder" />
             </el-form-item>
             <el-form-item label="JAR包">
-              <el-select v-model="detailForm.jarFileId" class="w-full">
-                <el-option label="请选择JAR包" :value="''" />
-                <el-option v-for="file in jarFiles" :key="file.id" :label="file.name" :value="file.id" />
-              </el-select>
+              <div class="flex gap-2">
+                <el-input v-model="selectedJarFileName" readonly placeholder="请选择JAR包" class="flex-1" />
+                <el-button type="primary" @click="showJarSelector = true">选择文件</el-button>
+              </div>
             </el-form-item>
           </template>
 
@@ -259,12 +282,20 @@
             <el-input-number v-model="detailForm.memoryMb" :min="128" :max="65536" />
           </el-form-item>
           <el-form-item label="负责人">
-            <el-input v-model="detailForm.owner" />
+            <div class="flex gap-2">
+              <el-input v-model="detailForm.owner" readonly placeholder="请选择负责人" class="flex-1" />
+              <el-button type="primary" @click="showOwnerSelector = true">选择用户</el-button>
+            </div>
           </el-form-item>
-          <el-form-item label="环境变量">
-            <el-select v-model="detailForm.envVariableIds" multiple placeholder="请选择环境变量">
-              <el-option v-for="env in envVariables" :key="env.id" :label="env.name" :value="env.id" />
+          <el-form-item label="环境变量配置">
+            <el-select v-model="detailForm.envConfigGroupIds" multiple placeholder="请选择环境变量配置组">
+              <el-option v-for="group in envConfigGroups" :key="group.id" :label="group.name" :value="group.id" />
             </el-select>
+          </el-form-item>
+          <el-form-item label="变量替换说明">
+            <div class="text-sm text-gray-600">
+              在脚本或脚本文件中使用 ${变量名} 的方式引用环境变量，任务执行时会自动进行替换。
+            </div>
           </el-form-item>
         </el-form>
         <div v-if="!isReadonly" class="detail-footer">
@@ -326,6 +357,103 @@
         </div>
       </div>
     </el-dialog>
+
+    <el-dialog title="选择JAR文件" v-model="showJarSelector" width="700px" top="5vh">
+      <div class="file-selector">
+        <div class="file-selector-header">
+          <el-breadcrumb separator="/">
+            <el-breadcrumb-item v-for="(item, index) in jarSelectorPath" :key="item.id || 'root'">
+              <span class="breadcrumb-link" @click="navigateJarSelectorPath(item, index)">
+                {{ item.name || '根目录' }}
+              </span>
+            </el-breadcrumb-item>
+          </el-breadcrumb>
+        </div>
+        <div class="file-selector-body">
+          <div class="file-tree">
+            <el-tree
+              :data="jarSelectorTree"
+              :props="{ label: 'name', children: 'children' }"
+              :default-expand-all="true"
+              @node-click="handleJarTreeNodeClick"
+            >
+              <template #default="{ node, data }">
+                <span v-if="data.isDirectory === 1" class="tree-directory">
+                  <el-icon class="mr-1"><Folder /></el-icon>
+                  {{ node.label }}
+                </span>
+                <span v-else class="tree-file" :class="{ 'tree-file-selected': selectedJarFileId === data.id }">
+                  <el-icon class="mr-1"><Document /></el-icon>
+                  {{ node.label }}
+                </span>
+              </template>
+            </el-tree>
+          </div>
+          <div class="file-list-panel">
+            <div class="file-grid">
+              <div
+                v-for="file in jarSelectorFiles"
+                :key="file.id"
+                class="file-item"
+                :class="{ selected: selectedJarFileId === file.id }"
+                @click="selectJarFile(file)"
+              >
+                <el-icon v-if="file.isDirectory === 1" class="file-icon directory-icon"><Folder /></el-icon>
+                <el-icon v-else class="file-icon file-icon-jar"><Document /></el-icon>
+                <span class="file-name">{{ file.name }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="file-selector-footer">
+          <el-button @click="showJarSelector = false">取消</el-button>
+          <el-button type="primary" @click="confirmJarSelection" :disabled="!selectedJarFileId">确认选择</el-button>
+        </div>
+      </div>
+    </el-dialog>
+
+    <el-dialog title="SQL编辑器" v-model="showSqlEditor" width="900px" top="5vh">
+      <div style="height: 400px;">
+        <SqlEditor v-model="sqlEditorContent" placeholder="请输入SQL语句..." />
+      </div>
+      <template #footer>
+        <el-button @click="showSqlEditor = false">取消</el-button>
+        <el-button type="primary" @click="saveSqlEditor">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog :title="currentScriptEditorTitle" v-model="showScriptEditor" width="900px" top="5vh">
+      <div style="height: 400px;">
+        <PythonEditor v-if="currentTaskType === 'PYTHON'" v-model="scriptEditorContent" placeholder="请输入Python脚本..." />
+        <PerlEditor v-else-if="currentTaskType === 'PERL'" v-model="scriptEditorContent" placeholder="请输入Perl脚本..." />
+        <ShellEditor v-else v-model="scriptEditorContent" placeholder="请输入Shell脚本..." />
+      </div>
+      <template #footer>
+        <el-button @click="showScriptEditor = false">取消</el-button>
+        <el-button type="primary" @click="saveScriptEditor">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog title="选择负责人" v-model="showOwnerSelector" width="500px">
+      <div class="owner-selector">
+        <el-input
+          v-model="ownerSearchKeyword"
+          placeholder="搜索用户名或姓名"
+          class="mb-4"
+          clearable
+        />
+        <el-table :data="filteredUsers" border>
+          <el-table-column prop="username" label="用户名" />
+          <el-table-column prop="name" label="姓名" />
+          <el-table-column prop="email" label="邮箱" />
+          <el-table-column label="操作" width="100">
+            <template #default="{ row }">
+              <el-button size="small" type="primary" @click="selectOwner(row)">选择</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -334,7 +462,11 @@ import { ref, onMounted, reactive, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { DocumentChecked, Top, Back, VideoPlay, Folder, Document } from '@element-plus/icons-vue'
-import { taskTypes, workflowApi, projectApi, datasourceApi, serverApi, fileApi, clusterConfigApi, taskTypeApi, envVariableApi, type TaskDefinition, type Project, type Datasource, type ServerNode, type FileResource, type ClusterConfig, type TaskTypeConfig, type EnvVariable } from '@/api'
+import SqlEditor from '@/components/SqlEditor.vue'
+import PythonEditor from '@/components/PythonEditor.vue'
+import PerlEditor from '@/components/PerlEditor.vue'
+import ShellEditor from '@/components/ShellEditor.vue'
+import { taskTypes, workflowApi, projectApi, datasourceApi, serverApi, fileApi, clusterConfigApi, taskTypeApi, envVariableApi, envConfigGroupApi, userApi, type TaskDefinition, type Project, type Datasource, type ServerNode, type FileResource, type ClusterConfig, type TaskTypeConfig, type EnvVariable, type EnvConfigGroup, type SysUser } from '@/api'
 
 interface CanvasNode {
   id: string
@@ -364,6 +496,7 @@ interface CanvasNode {
   httpMethod: string
   httpBody: string
   envVariableIds: number[]
+  envConfigGroupIds: number[]
 }
 
 interface Connection {
@@ -420,8 +553,26 @@ const files = ref<FileResource[]>([])
 const clusters = ref<ClusterConfig[]>([])
 const taskTypesConfig = ref<TaskTypeConfig[]>([])
 const envVariables = ref<EnvVariable[]>([])
+const envConfigGroups = ref<EnvConfigGroup[]>([])
 
 const jarFiles = computed(() => files.value.filter(f => f.type === 'JAR'))
+
+const sqlLines = computed(() => {
+  return sqlEditorContent.value.split('\n')
+})
+
+const currentTaskType = computed(() => {
+  return detailForm.taskType || 'SHELL'
+})
+
+const currentScriptEditorTitle = computed(() => {
+  const titles: Record<string, string> = {
+    SHELL: 'Shell脚本编辑器',
+    PYTHON: 'Python脚本编辑器',
+    PERL: 'Perl脚本编辑器'
+  }
+  return titles[currentTaskType.value] || '脚本编辑器'
+})
 
 const showFileSelector = ref(false)
 const selectedFileId = ref<number | null>(null)
@@ -430,6 +581,26 @@ const fileSelectorParentId = ref<number | null>(null)
 const fileSelectorPath = ref<any[]>([{ id: null, name: '根目录', parentId: null }])
 const fileSelectorFiles = ref<FileResource[]>([])
 const fileSelectorTree = ref<any[]>([])
+
+const showJarSelector = ref(false)
+const selectedJarFileId = ref<number | null>(null)
+const selectedJarFileName = ref('')
+const jarSelectorParentId = ref<number | null>(null)
+const jarSelectorPath = ref<any[]>([{ id: null, name: '根目录', parentId: null }])
+const jarSelectorFiles = ref<FileResource[]>([])
+const jarSelectorTree = ref<any[]>([])
+
+const showSqlEditor = ref(false)
+const sqlEditorContent = ref('')
+
+const showScriptEditor = ref(false)
+const scriptEditorContent = ref('')
+
+const showOwnerSelector = ref(false)
+const users = ref<SysUser[]>([])
+const selectedOwner = ref('')
+
+const ownerSearchKeyword = ref('')
 
 const loadFileSelectorFiles = async () => {
   try {
@@ -450,6 +621,108 @@ const loadFileSelectorTree = async () => {
     console.error('加载文件树失败', error)
   }
 }
+
+const loadJarSelectorFiles = async () => {
+  try {
+    const response = await fileApi.getDirectory(jarSelectorParentId.value)
+    const data = response?.data || response || {}
+    jarSelectorFiles.value = [...(data.directories || []), ...(data.files || [])]
+  } catch (error) {
+    console.error('加载文件列表失败', error)
+  }
+}
+
+const loadJarSelectorTree = async () => {
+  try {
+    const response = await fileApi.listAll()
+    const allFiles = response.data || response || []
+    jarSelectorTree.value = buildFileTree(allFiles, null)
+  } catch (error) {
+    console.error('加载文件树失败', error)
+  }
+}
+
+const selectJarFile = (file: FileResource) => {
+  if (file.isDirectory === 1) {
+    jarSelectorParentId.value = file.id
+    loadJarSelectorFiles()
+    jarSelectorPath.value.push({
+      id: file.id,
+      name: file.name,
+      parentId: file.parentId
+    })
+  } else {
+    selectedJarFileId.value = file.id
+    selectedJarFileName.value = file.name
+  }
+}
+
+const handleJarTreeNodeClick = (data: any) => {
+  if (data.isDirectory === 1) {
+    jarSelectorParentId.value = data.id
+    loadJarSelectorFiles()
+    jarSelectorPath.value = buildPathFromTree(data)
+  } else {
+    selectedJarFileId.value = data.id
+    selectedJarFileName.value = data.name
+  }
+}
+
+const navigateJarSelectorPath = (item: any, index: number) => {
+  jarSelectorParentId.value = item.id
+  jarSelectorPath.value = jarSelectorPath.value.slice(0, index + 1)
+  loadJarSelectorFiles()
+}
+
+const confirmJarSelection = () => {
+  if (selectedJarFileId.value) {
+    detailForm.jarFileId = selectedJarFileId.value
+    showJarSelector.value = false
+  }
+}
+
+const openSqlEditor = () => {
+  sqlEditorContent.value = detailForm.sql || ''
+  showSqlEditor.value = true
+}
+
+const saveSqlEditor = () => {
+  detailForm.sql = sqlEditorContent.value
+  showSqlEditor.value = false
+}
+
+const openScriptEditor = () => {
+  scriptEditorContent.value = detailForm.script || ''
+  showScriptEditor.value = true
+}
+
+const saveScriptEditor = () => {
+  detailForm.script = scriptEditorContent.value
+  showScriptEditor.value = false
+}
+
+const loadUsers = async () => {
+  try {
+    const response = await userApi.list()
+    users.value = response.data || response || []
+  } catch (error) {
+    console.error('加载用户列表失败', error)
+  }
+}
+
+const selectOwner = (user: SysUser) => {
+  selectedOwner.value = user.username
+  detailForm.owner = user.username
+  showOwnerSelector.value = false
+}
+
+const filteredUsers = computed(() => {
+  if (!ownerSearchKeyword.value) return users.value
+  return users.value.filter(u => 
+    u.username.toLowerCase().includes(ownerSearchKeyword.value.toLowerCase()) ||
+    u.name.toLowerCase().includes(ownerSearchKeyword.value.toLowerCase())
+  )
+})
 
 const buildFileTree = (files: FileResource[], parentId: number | null): any[] => {
   return files
@@ -552,6 +825,28 @@ watch(showFileSelector, (val) => {
   }
 })
 
+watch(showJarSelector, (val) => {
+  if (val) {
+    selectedJarFileId.value = detailForm.jarFileId || null
+    if (selectedJarFileId.value) {
+      const file = files.value.find(f => f.id === selectedJarFileId.value)
+      selectedJarFileName.value = file?.name || ''
+    } else {
+      selectedJarFileName.value = ''
+    }
+    jarSelectorParentId.value = null
+    jarSelectorPath.value = [{ id: null, name: '根目录', parentId: null }]
+    loadJarSelectorFiles()
+    loadJarSelectorTree()
+  }
+})
+
+watch(showOwnerSelector, (val) => {
+  if (val) {
+    loadUsers()
+  }
+})
+
 const detailForm = reactive({
   name: '',
   taskType: 'SHELL',
@@ -576,7 +871,8 @@ const detailForm = reactive({
   httpUrl: '',
   httpMethod: 'GET',
   httpBody: '',
-  envVariableIds: [] as number[]
+  envVariableIds: [] as number[],
+  envConfigGroupIds: [] as number[]
 })
 
 const taskFormRules = {
@@ -613,14 +909,15 @@ const getTaskLabel = (type: string) => {
 
 const loadResources = async () => {
   try {
-    const [projectRes, dsRes, serverRes, fileRes, clusterRes, ttRes, envRes] = await Promise.all([
+    const [projectRes, dsRes, serverRes, fileRes, clusterRes, ttRes, envRes, envNamesRes] = await Promise.all([
       projectApi.list(),
       datasourceApi.list({ page: 1, size: 100 }),
       serverApi.list({ page: 1, size: 100 }),
       fileApi.list({ page: 1, size: 100 }),
       clusterConfigApi.list({ page: 1, size: 100 }),
       taskTypeApi.list({ page: 1, size: 100 }),
-      envVariableApi.list({ page: 1, size: 100 })
+      envVariableApi.list({ page: 1, size: 100 }),
+      envConfigGroupApi.list()
     ])
     projects.value = projectRes.data || projectRes || []
     datasources.value = dsRes.data || []
@@ -629,6 +926,7 @@ const loadResources = async () => {
     clusters.value = clusterRes.data || []
     taskTypesConfig.value = ttRes.data || []
     envVariables.value = envRes.data || []
+    envConfigGroups.value = (envNamesRes as any).data || envNamesRes || []
     
     if (projects.value.length > 0 && projectId.value === 0) {
       projectId.value = projects.value[0].id
@@ -689,7 +987,8 @@ const handleDrop = (event: DragEvent) => {
     httpUrl: '',
     httpMethod: 'GET',
     httpBody: '',
-    envVariableIds: []
+    envVariableIds: [],
+    envConfigNames: []
   }
   
   nodes.value.push(newNode)
@@ -1569,5 +1868,67 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+}
+
+.file-icon-jar {
+  color: #8b5cf6;
+}
+
+.sql-editor {
+  display: flex;
+  flex-direction: column;
+  height: 400px;
+}
+
+.sql-editor-toolbar {
+  padding: 8px 12px;
+  background: #f5f7fa;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.sql-editor-content {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.line-numbers {
+  width: 50px;
+  background: #f5f7fa;
+  padding: 12px 0;
+  text-align: right;
+  border-right: 1px solid #e8e8e8;
+  overflow-y: auto;
+}
+
+.line-number {
+  font-size: 13px;
+  line-height: 20px;
+  color: #909399;
+  padding-right: 8px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+.sql-textarea,
+.script-textarea {
+  flex: 1;
+  border: none;
+  outline: none;
+  padding: 12px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 13px;
+  line-height: 20px;
+  resize: none;
+  background: #fff;
+}
+
+.sql-textarea::placeholder,
+.script-textarea::placeholder {
+  color: #c0c4cc;
+}
+
+.owner-selector {
+  max-height: 400px;
+  overflow-y: auto;
 }
 </style>

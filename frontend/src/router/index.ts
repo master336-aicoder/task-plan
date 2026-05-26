@@ -10,6 +10,7 @@ import ServerList from '@/views/ServerList.vue'
 import FileList from '@/views/FileList.vue'
 import ClusterConfigList from '@/views/ClusterConfigList.vue'
 import TaskTypeList from '@/views/TaskTypeList.vue'
+import EnvConfigGroupList from '@/views/EnvConfigGroupList.vue'
 import EnvVariableList from '@/views/EnvVariableList.vue'
 import Login from '@/views/Login.vue'
 import Dashboard from '@/views/Dashboard.vue'
@@ -46,7 +47,8 @@ const routes: RouteRecordRaw[] = [
       { path: '/files', component: FileList, name: 'FileList' },
       { path: '/cluster-configs', component: ClusterConfigList, name: 'ClusterConfigList' },
       { path: '/task-types', component: TaskTypeList, name: 'TaskTypeList' },
-      { path: '/env-variables', component: EnvVariableList, name: 'EnvVariableList' },
+      { path: '/env-variables', component: EnvConfigGroupList, name: 'EnvConfigGroupList' },
+      { path: '/env-variables/group/:groupId', component: EnvVariableList, name: 'EnvVariableList' },
       { path: '/system/users', component: UserList, name: 'UserList' },
       { path: '/system/roles', component: RoleList, name: 'RoleList' },
       { path: '/system/menus', component: MenuList, name: 'MenuList' },

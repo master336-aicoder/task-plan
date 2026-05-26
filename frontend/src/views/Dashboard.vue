@@ -61,6 +61,58 @@
           </div>
         </el-card>
       </el-col>
+      <el-col :span="6">
+        <el-card shadow="hover">
+          <div class="stat-card">
+            <div class="stat-icon" style="background: #909399;">
+              <el-icon :size="30"><Coin /></el-icon>
+            </div>
+            <div class="stat-content">
+              <div class="stat-value">{{ stats.datasourceCount }}</div>
+              <div class="stat-label">数据源数</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="hover">
+          <div class="stat-card">
+            <div class="stat-icon" style="background: #6c757d;">
+              <el-icon :size="30"><Cpu /></el-icon>
+            </div>
+            <div class="stat-content">
+              <div class="stat-value">{{ stats.serverCount }}</div>
+              <div class="stat-label">服务器数</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="hover">
+          <div class="stat-card">
+            <div class="stat-icon" style="background: #10b981;">
+              <el-icon :size="30"><Check /></el-icon>
+            </div>
+            <div class="stat-content">
+              <div class="stat-value">{{ stats.successCount }}</div>
+              <div class="stat-label">成功执行</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="hover">
+          <div class="stat-card">
+            <div class="stat-icon" style="background: #ef4444;">
+              <el-icon :size="30"><Tools /></el-icon>
+            </div>
+            <div class="stat-content">
+              <div class="stat-value">{{ stats.failedCount }}</div>
+              <div class="stat-label">失败执行</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
     </el-row>
 
     <el-row :gutter="20" class="mt-4">
@@ -70,7 +122,7 @@
             <span>最近执行记录</span>
           </template>
           <el-table :data="recentExecutions" border stripe>
-            <el-table-column prop="processDefinitionName" label="工作流" />
+            <el-table-column prop="processName" label="工作流" />
             <el-table-column prop="state" label="状态" width="100">
               <template #default="{ row }">
                 <el-tag :type="getStateType(row.state)">{{ getStateLabel(row.state) }}</el-tag>
@@ -101,8 +153,8 @@
 import { ref, onMounted, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { FolderOpened, Connection, Clock, List } from '@element-plus/icons-vue'
-import { authApi, projectApi, workflowApi, scheduleApi, executionApi } from '@/api'
+import { FolderOpened, Connection, Clock, List, Tools, Check, Coin, Cpu } from '@element-plus/icons-vue'
+import { authApi, projectApi, workflowApi, scheduleApi, executionApi, datasourceApi, serverApi } from '@/api'
 
 const router = useRouter()
 const userInfo = reactive({
@@ -116,7 +168,11 @@ const stats = reactive({
   projectCount: 0,
   workflowCount: 0,
   scheduleCount: 0,
-  executionCount: 0
+  executionCount: 0,
+  datasourceCount: 0,
+  serverCount: 0,
+  successCount: 0,
+  failedCount: 0
 })
 
 const recentExecutions = ref<any[]>([])
@@ -173,6 +229,22 @@ const loadStats = async () => {
     const executionRes = await executionApi.list({ projectId: 1 })
     const executionData = executionRes.data || executionRes
     stats.executionCount = Array.isArray(executionData) ? executionData.length : (executionRes.total || 0)
+    
+    const datasourceRes = await datasourceApi.list({})
+    const datasourceData = datasourceRes.data || datasourceRes
+    stats.datasourceCount = Array.isArray(datasourceData) ? datasourceData.length : (datasourceRes.total || 0)
+    
+    const serverRes = await serverApi.list({})
+    const serverData = serverRes.data || serverRes
+    stats.serverCount = Array.isArray(serverData) ? serverData.length : (serverRes.total || 0)
+    
+    const successRes = await executionApi.list({ projectId: 1, state: 'SUCCESS' })
+    const successData = successRes.data || successRes
+    stats.successCount = Array.isArray(successData) ? successData.length : (successRes.total || 0)
+    
+    const failedRes = await executionApi.list({ projectId: 1, state: 'FAILURE' })
+    const failedData = failedRes.data || failedRes
+    stats.failedCount = Array.isArray(failedData) ? failedData.length : (failedRes.total || 0)
   } catch (error) {
     console.error('Load stats failed:', error)
   }

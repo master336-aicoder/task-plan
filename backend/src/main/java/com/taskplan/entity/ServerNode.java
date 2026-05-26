@@ -33,6 +33,9 @@ public class ServerNode {
     @Column(length = 50)
     private String status;
 
+    @Column(name = "env_script", columnDefinition = "TEXT")
+    private String envScript;
+
     @Column(name = "create_time")
     private LocalDateTime createTime;
 

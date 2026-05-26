@@ -36,9 +36,10 @@
         </template>
       </el-table-column>
       <el-table-column prop="createTime" label="创建时间" width="180" />
-      <el-table-column label="操作" width="280" fixed="right">
+      <el-table-column label="操作" width="350" fixed="right">
         <template #default="{ row }">
           <el-button size="small" @click="editServer(row)">编辑</el-button>
+          <el-button size="small" type="warning" @click="editEnvScript(row)">编辑脚本</el-button>
           <el-button size="small" type="success" @click="pingServer(row)">测试连接</el-button>
           <el-popconfirm title="确定要删除这个服务器吗？" @confirm="deleteServer(row)">
             <template #reference>
@@ -87,6 +88,19 @@
         <el-button type="primary" @click="saveServer" :loading="saving">确定</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog title="编辑环境变量脚本" v-model="showScriptEditor" width="800px" top="5vh">
+      <div style="height: 350px;">
+        <ShellEditor v-model="currentScript" placeholder="在此输入环境变量配置脚本..." />
+      </div>
+      <div class="mt-3 text-sm text-gray-600">
+        <p>该脚本会在每次连接服务器执行任务前自动执行，用于配置环境变量等初始化操作。</p>
+      </div>
+      <template #footer>
+        <el-button @click="showScriptEditor = false">取消</el-button>
+        <el-button type="primary" @click="saveEnvScript" :loading="saving">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -95,11 +109,13 @@ import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { serverApi, type ServerNode } from '@/api'
+import ShellEditor from '@/components/ShellEditor.vue'
 
 const servers = ref<ServerNode[]>([])
 const loading = ref(false)
 const saving = ref(false)
 const showForm = ref(false)
+const showScriptEditor = ref(false)
 const searchKeyword = ref('')
 const currentPage = ref(1)
 const pageSize = ref(10)
@@ -115,6 +131,31 @@ const form = ref<ServerNode>({
   password: '',
   groupName: ''
 })
+
+const currentServerId = ref<number | null>(null)
+const currentScript = ref('')
+
+const editEnvScript = (server: ServerNode) => {
+  currentServerId.value = server.id
+  currentScript.value = server.envScript || ''
+  showScriptEditor.value = true
+}
+
+const saveEnvScript = async () => {
+  if (!currentServerId.value) return
+  
+  saving.value = true
+  try {
+    await serverApi.updateEnvScript(currentServerId.value, { envScript: currentScript.value })
+    ElMessage.success('保存成功')
+    showScriptEditor.value = false
+    loadServers()
+  } catch (error) {
+    ElMessage.error('保存失败')
+  } finally {
+    saving.value = false
+  }
+}
 
 const formRules = {
   name: [{ required: true, message: '请输入服务器名称', trigger: 'blur' }],

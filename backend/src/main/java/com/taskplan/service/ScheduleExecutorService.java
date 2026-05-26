@@ -1,5 +1,6 @@
 package com.taskplan.service;
 
+import com.taskplan.entity.EnvVariable;
 import com.taskplan.entity.ProcessDefinition;
 import com.taskplan.entity.ProcessInstance;
 import com.taskplan.entity.ProcessSchedule;
@@ -21,6 +22,7 @@ import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,6 +52,9 @@ public class ScheduleExecutorService {
 
     @Autowired
     private TaskExecutionLogService taskExecutionLogService;
+
+    @Autowired
+    private EnvVariableService envVariableService;
 
     private Scheduler scheduler;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -241,6 +246,10 @@ public class ScheduleExecutorService {
             String taskNodeId = node.has("id") ? node.get("id").asText() : "Unknown";
             Long serverId = node.has("serverId") && !node.get("serverId").isNull() ? node.get("serverId").asLong() : null;
 
+            // 加载并替换环境变量
+            Map<String, String> envVariables = loadEnvVariables(node);
+            String processedScript = replaceEnvVariables(script, envVariables);
+            
             scheduleLogService.info(scheduleId, processInstanceId, 
                 String.format("[任务执行开始] 工作流实例ID: %d, 任务节点ID: %s, 任务名称: %s, 任务类型: %s, 时间: %s", 
                     processInstanceId, taskNodeId, taskName, taskType, LocalDateTime.now().format(DATE_FORMATTER)));
@@ -260,7 +269,7 @@ public class ScheduleExecutorService {
             if (server != null) {
                 log.info("执行任务: type={}, server={}", taskType, server.getHostname());
                 
-                Map<String, Object> result = sshService.executeScript(server, script, taskType);
+                Map<String, Object> result = sshService.executeScript(server, processedScript, taskType);
                 
                 boolean success = (Boolean) result.get("success");
                 String output = (String) result.get("output");
@@ -295,6 +304,45 @@ public class ScheduleExecutorService {
                 String.format("[任务执行异常] 工作流实例ID: %d, 任务名称: %s, 错误: %s", 
                     processInstanceId, node.has("name") ? node.get("name").asText() : "Unknown", e.getMessage()));
         }
+    }
+
+    private Map<String, String> loadEnvVariables(JsonNode node) {
+        Map<String, String> envMap = new HashMap<>();
+        try {
+            if (node.has("envConfigGroupIds") && node.get("envConfigGroupIds").isArray()) {
+                List<Long> groupIds = new ArrayList<>();
+                for (JsonNode groupIdNode : node.get("envConfigGroupIds")) {
+                    groupIds.add(groupIdNode.asLong());
+                }
+                if (!groupIds.isEmpty()) {
+                    List<EnvVariable> variables = envVariableService.listByGroupIds(groupIds);
+                    for (EnvVariable var : variables) {
+                        if (var.getName() != null && var.getValue() != null) {
+                            envMap.put(var.getName(), var.getValue());
+                        }
+                    }
+                    log.info("加载环境变量配置: groupIds={}, count={}", groupIds, variables.size());
+                }
+            }
+        } catch (Exception e) {
+            log.warn("加载环境变量失败: {}", e.getMessage());
+        }
+        return envMap;
+    }
+
+    private String replaceEnvVariables(String script, Map<String, String> envVariables) {
+        if (script == null || script.isEmpty() || envVariables.isEmpty()) {
+            return script;
+        }
+        
+        String result = script;
+        for (Map.Entry<String, String> entry : envVariables.entrySet()) {
+            String placeholder = "${" + entry.getKey() + "}";
+            if (result.contains(placeholder)) {
+                result = result.replace(placeholder, entry.getValue());
+            }
+        }
+        return result;
     }
 
     private void executeTask(Long processInstanceId, JsonNode node) {

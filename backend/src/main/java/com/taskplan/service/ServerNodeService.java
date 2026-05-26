@@ -104,6 +104,13 @@ public class ServerNodeService {
         }
     }
 
+    @Transactional
+    public ServerNode updateEnvScript(Long id, String envScript) {
+        ServerNode server = getServer(id);
+        server.setEnvScript(envScript);
+        return serverNodeRepository.save(server);
+    }
+
     private void validateServer(ServerNode server) {
         if (server.getName() == null || server.getName().trim().isEmpty()) {
             throw new BusinessException("服务器名称不能为空");
