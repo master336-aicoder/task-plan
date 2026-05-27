@@ -13,7 +13,7 @@
 
     <groupId>com.zd.taskplan</groupId>
     <artifactId>task-plan</artifactId>
-    <version>1.0.3</version>
+    <version>1.0.1</version>
     <name>Task Plan Toolbox</name>
     <description>任务计划管理系统</description>
 
