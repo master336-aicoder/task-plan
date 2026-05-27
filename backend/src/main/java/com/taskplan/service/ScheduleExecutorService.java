@@ -56,6 +56,9 @@ public class ScheduleExecutorService {
     @Autowired
     private EnvVariableService envVariableService;
 
+    @Autowired
+    private DatasourceService datasourceService;
+
     private Scheduler scheduler;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -97,13 +100,13 @@ public class ScheduleExecutorService {
 
                 if (!scheduler.checkExists(jobKeyObj)) {
                     addScheduleJob(schedule);
-                    scheduleLogService.info(schedule.getId(), schedule.getProcessDefinitionId(), 
-                        String.format("调度任务已加载 - ID: %d, 工作流: %d, Cron: %s", 
+                    scheduleLogService.info(schedule.getId(), schedule.getProcessDefinitionId(),
+                        String.format("调度任务已加载 - ID: %d, 工作流: %d, Cron: %s",
                             schedule.getId(), schedule.getProcessDefinitionId(), schedule.getCronExpression()));
                 }
             } catch (Exception e) {
                 log.error("加载调度计划失败: id={}, error={}", schedule.getId(), e.getMessage());
-                scheduleLogService.error(schedule.getId(), schedule.getProcessDefinitionId(), 
+                scheduleLogService.error(schedule.getId(), schedule.getProcessDefinitionId(),
                     String.format("加载调度任务失败: %s", e.getMessage()));
             }
         }
@@ -155,15 +158,15 @@ public class ScheduleExecutorService {
             }
             log.info("工作流实例创建成功: id={}, processName={}", instance.getId(), instance.getProcessName());
 
-            scheduleLogService.info(null, processDefinitionId, 
-                String.format("工作流执行开始 - 实例ID: %d, 工作流名称: %s, 时间: %s", 
+            scheduleLogService.info(null, processDefinitionId,
+                String.format("工作流执行开始 - 实例ID: %d, 工作流名称: %s, 时间: %s",
                     instance.getId(), processDefinition.getName(), LocalDateTime.now().format(DATE_FORMATTER)));
 
             executeTasks(instance.getId(), processDefinition.getDefinitionJson());
 
         } catch (Exception e) {
             log.error("执行工作流失败: processDefinitionId={}, error={}", processDefinitionId, e.getMessage(), e);
-            scheduleLogService.error(null, processDefinitionId, 
+            scheduleLogService.error(null, processDefinitionId,
                 String.format("工作流执行失败: %s", e.getMessage()));
         }
     }
@@ -175,7 +178,7 @@ public class ScheduleExecutorService {
 
             if (!"ONLINE".equals(processDefinition.getReleaseState())) {
                 log.warn("工作流未上线，跳过执行: id={}", processDefinitionId);
-                scheduleLogService.warn(scheduleId, processDefinitionId, 
+                scheduleLogService.warn(scheduleId, processDefinitionId,
                     String.format("工作流未上线，跳过执行: %s", processDefinition.getName()));
                 return;
             }
@@ -183,15 +186,15 @@ public class ScheduleExecutorService {
             ProcessInstance instance = processInstanceService.startProcess(processDefinition, "SCHEDULER");
             log.info("工作流实例创建成功: id={}, processName={}", instance.getId(), instance.getProcessName());
 
-            scheduleLogService.info(scheduleId, processDefinitionId, 
-                String.format("[调度触发] 工作流执行开始 - 调度ID: %d, 实例ID: %d, 工作流名称: %s, 时间: %s", 
+            scheduleLogService.info(scheduleId, processDefinitionId,
+                String.format("[调度触发] 工作流执行开始 - 调度ID: %d, 实例ID: %d, 工作流名称: %s, 时间: %s",
                     scheduleId, instance.getId(), processDefinition.getName(), LocalDateTime.now().format(DATE_FORMATTER)));
 
             executeTasks(scheduleId, instance.getId(), processDefinition.getDefinitionJson());
 
         } catch (Exception e) {
             log.error("执行工作流失败: processDefinitionId={}, error={}", processDefinitionId, e.getMessage(), e);
-            scheduleLogService.error(scheduleId, processDefinitionId, 
+            scheduleLogService.error(scheduleId, processDefinitionId,
                 String.format("[调度触发] 工作流执行失败: %s", e.getMessage()));
         }
     }
@@ -215,18 +218,18 @@ public class ScheduleExecutorService {
         } catch (Exception e) {
             allSuccess = false;
             log.error("解析工作流定义失败: {}", e.getMessage());
-            scheduleLogService.error(scheduleId, processInstanceId, 
-                String.format("[工作流执行失败] 工作流实例ID: %d, 解析工作流定义失败: %s", 
+            scheduleLogService.error(scheduleId, processInstanceId,
+                String.format("[工作流执行失败] 工作流实例ID: %d, 解析工作流定义失败: %s",
                     processInstanceId, e.getMessage()));
         } finally {
             try {
                 String endState = allSuccess ? "SUCCESS" : "FAILURE";
                 processInstanceService.endProcess(processInstanceId, endState);
-                
-                scheduleLogService.info(scheduleId, processInstanceId, 
-                    String.format("[工作流执行完成] 工作流实例ID: %d, 状态: %s, 时间: %s", 
+
+                scheduleLogService.info(scheduleId, processInstanceId,
+                    String.format("[工作流执行完成] 工作流实例ID: %d, 状态: %s, 时间: %s",
                         processInstanceId, endState, LocalDateTime.now().format(DATE_FORMATTER)));
-                
+
                 log.info("工作流执行完成: processInstanceId={}, state={}", processInstanceId, endState);
             } catch (Exception e) {
                 log.error("更新工作流实例状态失败: {}", e.getMessage());
@@ -246,62 +249,111 @@ public class ScheduleExecutorService {
             String taskNodeId = node.has("id") ? node.get("id").asText() : "Unknown";
             Long serverId = node.has("serverId") && !node.get("serverId").isNull() ? node.get("serverId").asLong() : null;
 
-            // 加载并替换环境变量
             Map<String, String> envVariables = loadEnvVariables(node);
             String processedScript = replaceEnvVariables(script, envVariables);
-            
-            scheduleLogService.info(scheduleId, processInstanceId, 
-                String.format("[任务执行开始] 工作流实例ID: %d, 任务节点ID: %s, 任务名称: %s, 任务类型: %s, 时间: %s", 
+
+            scheduleLogService.info(scheduleId, processInstanceId,
+                String.format("[任务执行开始] 工作流实例ID: %d, 任务节点ID: %s, 任务名称: %s, 任务类型: %s, 时间: %s",
                     processInstanceId, taskNodeId, taskName, taskType, LocalDateTime.now().format(DATE_FORMATTER)));
 
-            ServerNode server = null;
-            if (serverId != null) {
-                server = serverNodeRepository.findById(serverId).orElse(null);
-            }
+            boolean success;
+            String output;
+            String error;
+            String serverIp = null;
+            Long actualServerId = null;
 
-            if (server == null) {
-                List<ServerNode> onlineServers = serverNodeRepository.findByStatus("ONLINE");
-                if (!onlineServers.isEmpty()) {
-                    server = onlineServers.get(0);
+            if ("SQL".equalsIgnoreCase(taskType)) {
+                Long datasourceId = node.has("datasourceId") && !node.get("datasourceId").isNull() ? node.get("datasourceId").asLong() : null;
+
+                if (datasourceId != null) {
+                    try {
+                        output = datasourceService.executeSql(datasourceId, processedScript);
+                        success = !output.startsWith("SQL执行失败:");
+                        error = success ? null : output;
+                        serverIp = "localhost (Direct DB Connection)";
+                        actualServerId = datasourceId;
+
+                        log.info("SQL任务执行结果: success={}, outputLength={}", success, output.length());
+                    } catch (Exception e) {
+                        success = false;
+                        output = "SQL执行异常: " + e.getMessage();
+                        error = output;
+                        serverIp = "localhost (Direct DB Connection)";
+                        actualServerId = datasourceId;
+                        log.error("SQL任务执行失败: {}", e.getMessage(), e);
+                    }
+                } else {
+                    success = false;
+                    output = "SQL任务缺少数据源配置 (datasourceId)";
+                    error = output;
+                    log.warn("SQL任务缺少datasourceId配置");
                 }
-            }
 
-            if (server != null) {
-                log.info("执行任务: type={}, server={}", taskType, server.getHostname());
-                
-                Map<String, Object> result = sshService.executeScript(server, processedScript, taskType);
-                
-                boolean success = (Boolean) result.get("success");
-                String output = (String) result.get("output");
-                String error = (String) result.get("error");
-                
-                log.info("任务执行结果: success={}, output={}, error={}", success, output, error);
+                String logMessage = String.format("[SQL任务执行完成] 工作流实例ID: %d, 任务节点ID: %s, 任务名称: %s, 状态: %s\n%s",
+                    processInstanceId, taskNodeId, taskName,
+                    success ? "成功" : "失败",
+                    output.length() > 500 ? output.substring(0, 500) + "\n...(结果已截断)" : output);
 
-                String logMessage = String.format("[任务执行完成] 工作流实例ID: %d, 任务节点ID: %s, 任务名称: %s, 任务类型: %s, 服务器: %s, 状态: %s, 输出: %s", 
-                    processInstanceId, taskNodeId, taskName, taskType, server.getHostname(), 
-                    success ? "成功" : "失败", 
-                    output != null && output.length() > 200 ? output.substring(0, 200) + "..." : (output != null ? output : "无"));
-                
                 if (success) {
                     scheduleLogService.info(scheduleId, processInstanceId, logMessage);
                 } else {
-                    scheduleLogService.error(scheduleId, processInstanceId, 
-                        logMessage + (error != null ? ", 错误: " + error : ""));
+                    scheduleLogService.error(scheduleId, processInstanceId, logMessage);
                 }
-                
-                saveTaskLog(processInstanceId, taskNodeId, taskName, taskType, 
-                        server.getId(), server.getHostname(), success, output, error);
+
+                saveTaskLog(processInstanceId, taskNodeId, taskName, taskType,
+                        actualServerId, serverIp, success, output, error);
             } else {
-                log.warn("没有可用的服务器节点来执行任务");
-                scheduleLogService.warn(scheduleId, processInstanceId, 
-                    String.format("[任务执行异常] 工作流实例ID: %d, 任务名称: %s, 没有可用的服务器节点来执行任务", 
-                        processInstanceId, taskName));
+                ServerNode server = null;
+                if (serverId != null) {
+                    server = serverNodeRepository.findById(serverId).orElse(null);
+                }
+
+                if (server == null) {
+                    List<ServerNode> onlineServers = serverNodeRepository.findByStatus("ONLINE");
+                    if (!onlineServers.isEmpty()) {
+                        server = onlineServers.get(0);
+                    }
+                }
+
+                if (server != null) {
+                    log.info("执行任务: type={}, server={}", taskType, server.getHostname());
+
+                    Map<String, Object> result = sshService.executeScript(server, processedScript, taskType);
+
+                    success = (Boolean) result.get("success");
+                    output = (String) result.get("output");
+                    error = (String) result.get("error");
+                    serverIp = server.getHostname();
+                    actualServerId = server.getId();
+
+                    log.info("任务执行结果: success={}, output={}, error={}", success, output, error);
+
+                    String logMessage = String.format("[任务执行完成] 工作流实例ID: %d, 任务节点ID: %s, 任务名称: %s, 任务类型: %s, 服务器: %s, 状态: %s, 输出: %s",
+                        processInstanceId, taskNodeId, taskName, taskType, server.getHostname(),
+                        success ? "成功" : "失败",
+                        output != null && output.length() > 200 ? output.substring(0, 200) + "..." : (output != null ? output : "无"));
+
+                    if (success) {
+                        scheduleLogService.info(scheduleId, processInstanceId, logMessage);
+                    } else {
+                        scheduleLogService.error(scheduleId, processInstanceId,
+                            logMessage + (error != null ? ", 错误: " + error : ""));
+                    }
+
+                    saveTaskLog(processInstanceId, taskNodeId, taskName, taskType,
+                            server.getId(), server.getHostname(), success, output, error);
+                } else {
+                    log.warn("没有可用的服务器节点来执行任务");
+                    scheduleLogService.warn(scheduleId, processInstanceId,
+                        String.format("[任务执行异常] 工作流实例ID: %d, 任务名称: %s, 没有可用的服务器节点来执行任务",
+                            processInstanceId, taskName));
+                }
             }
 
         } catch (Exception e) {
             log.error("执行任务失败: {}", e.getMessage());
-            scheduleLogService.error(scheduleId, processInstanceId, 
-                String.format("[任务执行异常] 工作流实例ID: %d, 任务名称: %s, 错误: %s", 
+            scheduleLogService.error(scheduleId, processInstanceId,
+                String.format("[任务执行异常] 工作流实例ID: %d, 任务名称: %s, 错误: %s",
                     processInstanceId, node.has("name") ? node.get("name").asText() : "Unknown", e.getMessage()));
         }
     }
@@ -334,7 +386,7 @@ public class ScheduleExecutorService {
         if (script == null || script.isEmpty() || envVariables.isEmpty()) {
             return script;
         }
-        
+
         String result = script;
         for (Map.Entry<String, String> entry : envVariables.entrySet()) {
             String placeholder = "${" + entry.getKey() + "}";
@@ -349,7 +401,7 @@ public class ScheduleExecutorService {
         executeTask(null, processInstanceId, node);
     }
 
-    private void saveTaskLog(Long processInstanceId, String taskNodeId, String taskName, 
+    private void saveTaskLog(Long processInstanceId, String taskNodeId, String taskName,
                             String taskType, Long serverId, String serverIp,
                             boolean success, String output, String error) {
         try {
@@ -364,9 +416,9 @@ public class ScheduleExecutorService {
             logEntity.setOutput(output);
             logEntity.setError(error);
             logEntity.setCreateTime(LocalDateTime.now());
-            
+
             taskExecutionLogService.saveLog(logEntity);
-            log.info("任务执行日志已保存: processInstanceId={}, taskNodeId={}, success={}", 
+            log.info("任务执行日志已保存: processInstanceId={}, taskNodeId={}, success={}",
                     processInstanceId, taskNodeId, success);
         } catch (Exception e) {
             log.error("保存任务执行日志失败: {}", e.getMessage());
@@ -379,10 +431,10 @@ public class ScheduleExecutorService {
         @Override
         public void execute(JobExecutionContext context) throws JobExecutionException {
             Long scheduleId = context.getJobDetail().getJobDataMap().getLong("scheduleId");
-            
+
             ScheduleExecutorService executorService = null;
             try {
-                executorService = (ScheduleExecutorService) 
+                executorService = (ScheduleExecutorService)
                         context.getScheduler().getContext().get("scheduleExecutorService");
             } catch (SchedulerException e) {
                 log.error("获取调度器上下文失败: {}", e.getMessage());
@@ -393,15 +445,15 @@ public class ScheduleExecutorService {
                 try {
                     ProcessSchedule schedule = executorService.processScheduleRepository.findById(scheduleId).orElse(null);
                     if (schedule != null && schedule.getIsValid() == 1) {
-                        executorService.scheduleLogService.info(scheduleId, schedule.getProcessDefinitionId(), 
-                            String.format("[定时触发] 调度任务触发 - 调度ID: %d, 工作流ID: %d, Cron: %s, 时间: %s", 
-                                scheduleId, schedule.getProcessDefinitionId(), schedule.getCronExpression(), 
-                                LocalDateTime.now().format(DATE_FORMATTER)));
+                        executorService.scheduleLogService.info(scheduleId, schedule.getProcessDefinitionId(),
+                            String.format("[定时触发] 调度任务触发 - 调度ID: %d, 工作流ID: %d, Cron: %s, 时间: %s",
+                                scheduleId, schedule.getProcessDefinitionId(), schedule.getCronExpression(),
+                                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
                         executorService.executeProcess(scheduleId, schedule.getProcessDefinitionId());
                     }
                 } catch (Exception e) {
                     log.error("调度任务执行失败: scheduleId={}, error={}", scheduleId, e.getMessage());
-                    executorService.scheduleLogService.error(scheduleId, null, 
+                    executorService.scheduleLogService.error(scheduleId, null,
                         String.format("调度任务执行失败: %s", e.getMessage()));
                 }
             }

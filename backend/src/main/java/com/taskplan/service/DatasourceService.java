@@ -10,6 +10,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.sql.*;
+import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -31,12 +33,12 @@ public class DatasourceService {
     @Transactional
     public Datasource updateDatasource(Long id, Datasource datasource) {
         Datasource existing = getDatasource(id);
-        
-        if (!existing.getName().equals(datasource.getName()) && 
+
+        if (!existing.getName().equals(datasource.getName()) &&
             datasourceRepository.existsByName(datasource.getName())) {
             throw new BusinessException("数据源名称已存在");
         }
-        
+
         existing.setName(datasource.getName());
         existing.setType(datasource.getType());
         existing.setHost(datasource.getHost());
@@ -45,7 +47,7 @@ public class DatasourceService {
         existing.setUsername(datasource.getUsername());
         existing.setPassword(datasource.getPassword());
         existing.setParams(datasource.getParams());
-        
+
         return datasourceRepository.save(existing);
     }
 
@@ -87,12 +89,107 @@ public class DatasourceService {
         }
     }
 
+    public String executeSql(Long datasourceId, String sql) {
+        Datasource datasource = getDatasource(datasourceId);
+        String url = buildJdbcUrl(datasource);
+
+        try (java.sql.Connection conn = DriverManager.getConnection(url, datasource.getUsername(), datasource.getPassword())) {
+            String trimmedSql = sql.trim().toLowerCase();
+
+            if (trimmedSql.startsWith("select") || trimmedSql.startsWith("show") || trimmedSql.startsWith("describe")) {
+                return executeQuery(conn, sql);
+            } else {
+                return executeUpdate(conn, sql);
+            }
+        } catch (SQLException e) {
+            log.error("SQL执行失败: {}", e.getMessage(), e);
+            return "SQL执行失败: " + e.getMessage();
+        }
+    }
+
+    private String executeQuery(Connection conn, String sql) throws SQLException {
+        StringBuilder result = new StringBuilder();
+        result.append("=============== SQL查询结果 ===============\n");
+        result.append("SQL: ").append(sql).append("\n\n");
+
+        try (Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+
+            ResultSetMetaData metaData = rs.getMetaData();
+            int columnCount = metaData.getColumnCount();
+
+            List<String> headers = new ArrayList<>();
+            for (int i = 1; i <= columnCount; i++) {
+                headers.add(metaData.getColumnLabel(i) + " (" + metaData.getColumnTypeName(i) + ")");
+            }
+            result.append("列信息: ").append(String.join(", ", headers)).append("\n\n");
+
+            result.append("-------------------- 结果 --------------------\n");
+
+            int rowCount = 0;
+            int maxRows = 1000;
+
+            while (rs.next()) {
+                if (rowCount >= maxRows) {
+                    result.append("\n... (结果超过").append(maxRows).append("行，仅显示前").append(maxRows).append("行)");
+                    break;
+                }
+
+                for (int i = 1; i <= columnCount; i++) {
+                    if (i > 1) result.append(" | ");
+                    Object value = rs.getObject(i);
+                    String strValue = value == null ? "NULL" : value.toString();
+                    if (strValue.length() > 100) {
+                        strValue = strValue.substring(0, 100) + "...";
+                    }
+                    result.append(strValue);
+                }
+                result.append("\n");
+                rowCount++;
+            }
+
+            result.append("\n--------------------------------------------\n");
+            result.append("共 ").append(rowCount).append(" 行结果");
+
+            log.info("SQL查询执行成功: 影响 {} 行", rowCount);
+        }
+
+        return result.toString();
+    }
+
+    private String executeUpdate(Connection conn, String sql) throws SQLException {
+        StringBuilder result = new StringBuilder();
+        result.append("=============== SQL执行结果 ===============\n");
+        result.append("SQL: ").append(sql).append("\n\n");
+
+        try (Statement stmt = conn.createStatement()) {
+            boolean hasResultSet = stmt.execute(sql);
+
+            if (hasResultSet) {
+                try (ResultSet rs = stmt.getResultSet()) {
+                    result.append(executeQuery(conn, sql));
+                    return result.toString();
+                }
+            } else {
+                int updateCount = stmt.getUpdateCount();
+                result.append("-------------------- 结果 --------------------\n");
+                result.append("执行成功！\n");
+                result.append("影响行数: ").append(updateCount).append("\n");
+                result.append("--------------------------------------------\n");
+
+                log.info("SQL更新执行成功: 影响 {} 行", updateCount);
+            }
+        }
+
+        return result.toString();
+    }
+
     private String buildJdbcUrl(Datasource datasource) {
         String type = datasource.getType().toUpperCase();
         String host = datasource.getHost();
         int port = datasource.getPort();
         String database = datasource.getDatabaseName();
-        
+
         switch (type) {
             case "MYSQL":
                 return String.format("jdbc:mysql://%s:%d/%s?useSSL=false&serverTimezone=UTC", host, port, database);
