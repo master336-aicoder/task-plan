@@ -111,8 +111,10 @@
             <el-option label="UTC" value="UTC" />
           </el-select>
         </el-form-item>
-        <el-form-item label="负责人">
-          <el-input v-model="form.owner" placeholder="请输入负责人" />
+        <el-form-item label="负责人" prop="owner">
+          <el-select v-model="form.owner" placeholder="请选择负责人" class="w-full">
+            <el-option v-for="user in users" :key="user.username" :label="user.nickname || user.username" :value="user.username" />
+          </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -128,11 +130,12 @@ import { ref, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import CronEditor from '@/components/CronEditor.vue'
-import { projectApi, workflowApi, scheduleApi, executionApi, type Project, type ProcessDefinition, type ProcessSchedule } from '@/api'
+import { projectApi, workflowApi, scheduleApi, executionApi, userApi, type Project, type ProcessDefinition, type ProcessSchedule, type SysUser } from '@/api'
 
 const schedules = ref<any[]>([])
 const projects = ref<Project[]>([])
 const workflows = ref<ProcessDefinition[]>([])
+const users = ref<SysUser[]>([])
 const loading = ref(false)
 const submitting = ref(false)
 const batchLoading = ref(false)
@@ -176,6 +179,15 @@ const loadProjects = async () => {
     }
   } catch (error) {
     console.error('加载项目列表失败', error)
+  }
+}
+
+const loadUsers = async () => {
+  try {
+    const res = await userApi.list()
+    users.value = res.data || res || []
+  } catch (error) {
+    console.error('加载用户列表失败', error)
   }
 }
 
@@ -436,6 +448,7 @@ const batchRetry = async () => {
 onMounted(async () => {
   await loadProjects()
   await loadWorkflows()
+  await loadUsers()
   loadSchedules()
 })
 </script>
