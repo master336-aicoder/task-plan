@@ -150,6 +150,8 @@ public class ProcessDefinitionService {
         
         ProcessDefinition saved = processDefinitionRepository.save(process);
         
+        processScheduleRepository.updateScheduleStatusByProcessId(id, 1);
+        
         log.info("Process released: id={}, name={}, version={}", id, process.getName(), process.getVersion());
         return saved;
     }
@@ -158,7 +160,12 @@ public class ProcessDefinitionService {
     public ProcessDefinition offlineProcess(Long id) {
         ProcessDefinition process = getProcess(id);
         process.setReleaseState("OFFLINE");
-        return processDefinitionRepository.save(process);
+        
+        ProcessDefinition saved = processDefinitionRepository.save(process);
+        
+        processScheduleRepository.updateScheduleStatusByProcessId(id, 0);
+        
+        return saved;
     }
 
     private void saveToHistory(ProcessDefinition process) {

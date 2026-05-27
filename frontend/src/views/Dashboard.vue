@@ -135,6 +135,51 @@
       <el-col :span="12">
         <el-card>
           <template #header>
+            <span>服务器状态</span>
+          </template>
+          <el-table :data="serverStatus" border stripe v-loading="loadingServer">
+            <el-table-column prop="serverName" label="服务器名称" width="120" />
+            <el-table-column prop="hostIp" label="地址" width="120" />
+            <el-table-column prop="username" label="用户名" width="100" />
+            <el-table-column prop="probeStatus" label="状态" width="100">
+              <template #default="{ row }">
+                <el-tag :type="row.probeStatus === 'SUCCESS' ? 'success' : 'danger'">
+                  {{ row.probeStatus === 'SUCCESS' ? '在线' : '离线' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="probeTime" label="最后探活时间" width="160" />
+            <el-table-column prop="responseTime" label="耗时(ms)" width="100" />
+          </el-table>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <el-row :gutter="20" class="mt-4">
+      <el-col :span="12">
+        <el-card>
+          <template #header>
+            <span>数据源状态</span>
+          </template>
+          <el-table :data="datasourceStatus" border stripe v-loading="loadingDatasource">
+            <el-table-column prop="datasourceName" label="数据源名称" width="120" />
+            <el-table-column prop="host" label="地址" width="120" />
+            <el-table-column prop="username" label="用户名" width="100" />
+            <el-table-column prop="probeStatus" label="状态" width="100">
+              <template #default="{ row }">
+                <el-tag :type="row.probeStatus === 'SUCCESS' ? 'success' : 'danger'">
+                  {{ row.probeStatus === 'SUCCESS' ? '连接正常' : '连接失败' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="probeTime" label="最后探活时间" width="160" />
+            <el-table-column prop="responseTime" label="耗时(ms)" width="100" />
+          </el-table>
+        </el-card>
+      </el-col>
+      <el-col :span="12">
+        <el-card>
+          <template #header>
             <span>快捷操作</span>
           </template>
           <div class="quick-actions">
@@ -154,7 +199,7 @@ import { ref, onMounted, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { FolderOpened, Connection, Clock, List, Tools, Check, Coin, Cpu } from '@element-plus/icons-vue'
-import { authApi, projectApi, workflowApi, scheduleApi, executionApi, datasourceApi, serverApi } from '@/api'
+import { authApi, projectApi, workflowApi, scheduleApi, executionApi, datasourceApi, serverApi, probeApi } from '@/api'
 
 const router = useRouter()
 const userInfo = reactive({
@@ -176,6 +221,10 @@ const stats = reactive({
 })
 
 const recentExecutions = ref<any[]>([])
+const serverStatus = ref<any[]>([])
+const datasourceStatus = ref<any[]>([])
+const loadingServer = ref(false)
+const loadingDatasource = ref(false)
 
 const getStateType = (state: string) => {
   const types: Record<string, string> = {
@@ -263,6 +312,30 @@ const loadRecentExecutions = async () => {
   }
 }
 
+const loadServerStatus = async () => {
+  loadingServer.value = true
+  try {
+    const res = await probeApi.getServerStatus()
+    serverStatus.value = res.data || []
+  } catch (error) {
+    console.error('Load server status failed:', error)
+  } finally {
+    loadingServer.value = false
+  }
+}
+
+const loadDatasourceStatus = async () => {
+  loadingDatasource.value = true
+  try {
+    const res = await probeApi.getDatasourceStatus()
+    datasourceStatus.value = res.data || []
+  } catch (error) {
+    console.error('Load datasource status failed:', error)
+  } finally {
+    loadingDatasource.value = false
+  }
+}
+
 const handleLogout = async () => {
   try {
     await authApi.logout()
@@ -279,6 +352,8 @@ onMounted(() => {
   loadUserInfo()
   loadStats()
   loadRecentExecutions()
+  loadServerStatus()
+  loadDatasourceStatus()
 })
 </script>
 

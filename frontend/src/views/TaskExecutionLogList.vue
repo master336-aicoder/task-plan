@@ -33,8 +33,8 @@
     <el-table :data="logs" border v-loading="loading" stripe style="width: 100%;">
       <el-table-column prop="id" label="ID" width="60" />
       <el-table-column prop="processInstanceId" label="工作流实例ID" width="120" />
-      <el-table-column prop="taskNodeId" label="任务节点ID" width="120" />
-      <el-table-column prop="taskName" label="任务名称" min-width="120" />
+      <el-table-column prop="taskNodeId" label="任务节点ID" width="160" />
+      <el-table-column prop="taskName" label="任务名称" min-width="80" />
       <el-table-column prop="taskType" label="任务类型" width="100">
         <template #default="{ row }">
           <el-tag :type="getTaskTypeTagType(row.taskType)">

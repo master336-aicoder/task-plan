@@ -53,6 +53,9 @@ public class ProcessSchedule {
     @Column(length = 100)
     private String owner;
 
+    @Transient
+    private String processDefinitionName;
+
     @Column(name = "create_time")
     private LocalDateTime createTime;
 

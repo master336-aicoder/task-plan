@@ -24,10 +24,7 @@
               <el-icon class="mr-1"><Top /></el-icon>
               发布
             </el-button>
-            <el-button v-if="workflowId" type="warning" @click="executeWorkflow">
-              <el-icon class="mr-1"><VideoPlay /></el-icon>
-              立即执行
-            </el-button>
+            
           </template>
           <el-button @click="goBack">
             <el-icon class="mr-1"><Back /></el-icon>
@@ -175,10 +172,16 @@
               <span class="file-select-hint">点击选择文件</span>
             </el-form-item>
             <el-form-item v-if="scriptSource === 'content'" label="SQL语句">
-              <div class="flex gap-2">
-                <el-input v-model="detailForm.sql" type="textarea" :rows="8" :placeholder="sqlPlaceholder" class="flex-1" />
-                <el-button type="primary" @click="openSqlEditor">编辑SQL</el-button>
-              </div>
+              <el-input 
+                v-model="detailForm.sql" 
+                type="textarea" 
+                :rows="8" 
+                :placeholder="sqlPlaceholder" 
+                readonly 
+                class="w-full cursor-pointer script-content-clickable"
+                @click="openSqlEditor"
+              />
+              <span class="file-select-hint">点击编辑SQL</span>
             </el-form-item>
           </template>
 
@@ -206,16 +209,16 @@
               <span class="file-select-hint">点击选择文件</span>
             </el-form-item>
             <el-form-item v-if="scriptSource === 'content'" label="脚本内容">
-              <div class="flex gap-2">
-                <el-input 
-                  v-model="detailForm.script" 
-                  type="textarea" 
-                  :rows="6" 
-                  :placeholder="scriptPlaceholder"
-                  class="flex-1"
-                />
-                <el-button type="primary" @click="openScriptEditor">编辑脚本</el-button>
-              </div>
+              <el-input 
+                v-model="detailForm.script" 
+                type="textarea" 
+                :rows="6" 
+                :placeholder="scriptPlaceholder"
+                readonly 
+                class="w-full cursor-pointer script-content-clickable"
+                @click="openScriptEditor"
+              />
+              <span class="file-select-hint">点击编辑脚本</span>
             </el-form-item>
             <el-form-item label="任务类型配置">
               <el-select v-model="detailForm.taskTypeId" class="w-full">
@@ -288,9 +291,18 @@
             </div>
           </el-form-item>
           <el-form-item label="环境变量配置">
-            <el-select v-model="detailForm.envConfigGroupIds" multiple placeholder="请选择环境变量配置组">
+            <el-select v-model="detailForm.envConfigGroupIds" multiple placeholder="请选择环境变量配置组" @change="loadAvailableEnvVariables">
               <el-option v-for="group in envConfigGroups" :key="group.id" :label="group.name" :value="group.id" />
             </el-select>
+          </el-form-item>
+          <el-form-item v-if="availableEnvVariables.length > 0" label="可用环境变量">
+            <div class="env-variable-list">
+              <div v-for="item in availableEnvVariables" :key="item.name" class="env-variable-item">
+                <span class="var-name">${{ item.name }}</span>
+                <span class="var-value">{{ item.value }}</span>
+                <span v-if="item.description" class="var-desc">{{ item.description }}</span>
+              </div>
+            </div>
           </el-form-item>
           <el-form-item label="变量替换说明">
             <div class="text-sm text-gray-600">
@@ -554,6 +566,7 @@ const clusters = ref<ClusterConfig[]>([])
 const taskTypesConfig = ref<TaskTypeConfig[]>([])
 const envVariables = ref<EnvVariable[]>([])
 const envConfigGroups = ref<EnvConfigGroup[]>([])
+const availableEnvVariables = ref<EnvVariable[]>([])
 
 const jarFiles = computed(() => files.value.filter(f => f.type === 'JAR'))
 
@@ -1029,6 +1042,27 @@ const handleTaskTypeChange = () => {
     detailForm.httpUrl = ''
     detailForm.httpMethod = 'GET'
     detailForm.httpBody = ''
+  }
+}
+
+const loadAvailableEnvVariables = async () => {
+  const groupIds = detailForm.envConfigGroupIds || []
+  if (groupIds.length === 0) {
+    availableEnvVariables.value = []
+    return
+  }
+  
+  try {
+    const variables: EnvVariable[] = []
+    for (const groupId of groupIds) {
+      const response = await envVariableApi.listByGroupId(groupId)
+      const data = response.data || response || []
+      variables.push(...data)
+    }
+    availableEnvVariables.value = variables
+  } catch (error) {
+    console.error('加载环境变量失败', error)
+    availableEnvVariables.value = []
   }
 }
 
@@ -1925,6 +1959,56 @@ onMounted(() => {
 .sql-textarea::placeholder,
 .script-textarea::placeholder {
   color: #c0c4cc;
+}
+
+.script-content-clickable:hover {
+  background: #f5f7fa;
+  border-color: #409eff;
+}
+
+.env-variable-list {
+  max-height: 200px;
+  overflow-y: auto;
+  background: #f9fafb;
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.env-variable-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  background: #fff;
+  border-radius: 4px;
+  border: 1px solid #e8e8e8;
+}
+
+.env-variable-item:last-child {
+  margin-bottom: 0;
+}
+
+.var-name {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 13px;
+  color: #667eea;
+  font-weight: 500;
+  margin-right: 12px;
+}
+
+.var-value {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 13px;
+  color: #10b981;
+  flex: 1;
+}
+
+.var-desc {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 4px;
+  width: 100%;
 }
 
 .owner-selector {

@@ -1,7 +1,9 @@
 package com.taskplan.service;
 
+import com.taskplan.entity.ProcessDefinition;
 import com.taskplan.entity.ProcessSchedule;
 import com.taskplan.exception.BusinessException;
+import com.taskplan.repository.ProcessDefinitionRepository;
 import com.taskplan.repository.ProcessScheduleRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.quartz.SchedulerException;
@@ -19,6 +21,9 @@ public class ProcessScheduleService {
 
     @Autowired
     private ProcessScheduleRepository processScheduleRepository;
+
+    @Autowired
+    private ProcessDefinitionRepository processDefinitionRepository;
 
     @Autowired
     private ScheduleExecutorService scheduleExecutorService;
@@ -167,14 +172,24 @@ public class ProcessScheduleService {
     }
 
     public Page<ProcessSchedule> listSchedules(Long projectId, Long processDefinitionId, Pageable pageable) {
+        Page<ProcessSchedule> schedulePage;
+        
         if (projectId != null && processDefinitionId != null) {
-            return processScheduleRepository.findByProjectIdAndProcessDefinitionId(projectId, processDefinitionId, pageable);
+            schedulePage = processScheduleRepository.findByProjectIdAndProcessDefinitionId(projectId, processDefinitionId, pageable);
         } else if (projectId != null) {
-            return processScheduleRepository.findByProjectId(projectId, pageable);
+            schedulePage = processScheduleRepository.findByProjectId(projectId, pageable);
         } else if (processDefinitionId != null) {
-            return processScheduleRepository.findByProcessDefinitionId(processDefinitionId, pageable);
+            schedulePage = processScheduleRepository.findByProcessDefinitionId(processDefinitionId, pageable);
+        } else {
+            schedulePage = processScheduleRepository.findAll(pageable);
         }
-        return processScheduleRepository.findAll(pageable);
+        
+        schedulePage.getContent().forEach(schedule -> {
+            processDefinitionRepository.findById(schedule.getProcessDefinitionId())
+                .ifPresent(process -> schedule.setProcessDefinitionName(process.getName()));
+        });
+        
+        return schedulePage;
     }
 
     public List<ProcessSchedule> listSchedulesByProcess(Long processDefinitionId) {

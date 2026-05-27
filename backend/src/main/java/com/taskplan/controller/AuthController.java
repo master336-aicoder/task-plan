@@ -5,7 +5,9 @@ import com.taskplan.entity.SysUser;
 import com.taskplan.entity.SysRole;
 import com.taskplan.service.AuthService;
 import com.taskplan.service.SysUserService;
+import com.taskplan.service.LoginLogService;
 import com.taskplan.utils.JwtUtils;
+import javax.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,9 +27,12 @@ public class AuthController {
     
     @Autowired
     private JwtUtils jwtUtils;
+    
+    @Autowired
+    private LoginLogService loginLogService;
 
     @PostMapping("/login")
-    public Result<Map<String, Object>> login(@RequestBody Map<String, String> loginRequest) {
+    public Result<Map<String, Object>> login(@RequestBody Map<String, String> loginRequest, HttpServletRequest request) {
         String username = loginRequest.get("username");
         String password = loginRequest.get("password");
         
@@ -35,8 +40,53 @@ public class AuthController {
             return Result.error("用户名或密码不能为空");
         }
         
-        Map<String, Object> result = authService.login(username, password);
-        return Result.success(result);
+        try {
+            Map<String, Object> result = authService.login(username, password);
+            
+            SysUser user = sysUserService.getUserByUsername(username);
+            String clientIp = getClientIp(request);
+            String userAgent = request.getHeader("User-Agent");
+            String browserInfo = parseBrowserInfo(userAgent);
+            
+            loginLogService.saveLog(user.getId(), user.getUsername(), user.getRealName(), "SUCCESS",
+                    clientIp, request.getRemotePort(), null, browserInfo, userAgent, null);
+            
+            return Result.success(result);
+        } catch (Exception e) {
+            String clientIp = getClientIp(request);
+            String userAgent = request.getHeader("User-Agent");
+            String browserInfo = parseBrowserInfo(userAgent);
+            
+            loginLogService.saveLog(null, username, null, "FAILED",
+                    clientIp, request.getRemotePort(), null, browserInfo, userAgent, e.getMessage());
+            
+            throw e;
+        }
+    }
+    
+    private String getClientIp(HttpServletRequest request) {
+        String ip = request.getHeader("X-Forwarded-For");
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getHeader("Proxy-Client-IP");
+        }
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getRemoteAddr();
+        }
+        if (ip != null && ip.contains(",")) {
+            ip = ip.split(",")[0].trim();
+        }
+        return ip;
+    }
+    
+    private String parseBrowserInfo(String userAgent) {
+        if (userAgent == null) return "Unknown";
+        if (userAgent.contains("Chrome")) return "Chrome";
+        if (userAgent.contains("Firefox")) return "Firefox";
+        if (userAgent.contains("Safari") && !userAgent.contains("Chrome")) return "Safari";
+        if (userAgent.contains("Edge")) return "Edge";
+        if (userAgent.contains("Opera") || userAgent.contains("OPR")) return "Opera";
+        if (userAgent.contains("MSIE") || userAgent.contains("Trident")) return "IE";
+        return "Unknown";
     }
 
     @GetMapping("/userinfo")

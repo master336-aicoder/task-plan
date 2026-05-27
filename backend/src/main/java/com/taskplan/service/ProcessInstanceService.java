@@ -2,9 +2,11 @@ package com.taskplan.service;
 
 import com.taskplan.entity.ProcessDefinition;
 import com.taskplan.entity.ProcessInstance;
+import com.taskplan.entity.TaskExecutionLog;
 import com.taskplan.exception.BusinessException;
 import com.taskplan.repository.ProcessDefinitionRepository;
 import com.taskplan.repository.ProcessInstanceRepository;
+import com.taskplan.repository.TaskExecutionLogRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -25,6 +27,9 @@ public class ProcessInstanceService {
 
     @Autowired
     private ProcessDefinitionRepository processDefinitionRepository;
+
+    @Autowired
+    private TaskExecutionLogRepository taskExecutionLogRepository;
 
     @Transactional
     public ProcessInstance startProcess(Long processDefinitionId, String commandType) {
@@ -58,7 +63,9 @@ public class ProcessInstanceService {
     @Transactional
     public ProcessInstance endProcess(Long id, String state) {
         ProcessInstance instance = getInstance(id);
-        instance.setState(state);
+        
+        String actualState = calculateProcessState(id, state);
+        instance.setState(actualState);
         instance.setEndTime(LocalDateTime.now());
         
         if (instance.getStartTime() != null) {
@@ -66,6 +73,28 @@ public class ProcessInstanceService {
         }
         
         return processInstanceRepository.save(instance);
+    }
+
+    private String calculateProcessState(Long processInstanceId, String initialState) {
+        List<TaskExecutionLog> taskLogs = taskExecutionLogRepository.findByProcessInstanceId(processInstanceId);
+        
+        if (taskLogs.isEmpty()) {
+            return initialState;
+        }
+        
+        long successCount = taskLogs.stream().filter(t -> "SUCCESS".equals(t.getStatus())).count();
+        long failCount = taskLogs.stream().filter(t -> "FAILED".equals(t.getStatus())).count();
+        long totalCount = taskLogs.size();
+        
+        if (failCount == totalCount) {
+            return "FAILURE";
+        } else if (successCount == totalCount) {
+            return "SUCCESS";
+        } else if (failCount > 0 && successCount > 0) {
+            return "PARTIAL_SUCCESS";
+        } else {
+            return initialState;
+        }
     }
 
     public ProcessInstance getInstance(Long id) {

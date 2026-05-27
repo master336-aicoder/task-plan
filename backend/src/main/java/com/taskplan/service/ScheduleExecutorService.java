@@ -5,6 +5,7 @@ import com.taskplan.entity.ProcessDefinition;
 import com.taskplan.entity.ProcessInstance;
 import com.taskplan.entity.ProcessSchedule;
 import com.taskplan.entity.ServerNode;
+import com.taskplan.entity.TaskExecutionContent;
 import com.taskplan.entity.TaskExecutionLog;
 import com.taskplan.repository.ProcessDefinitionRepository;
 import com.taskplan.repository.ProcessScheduleRepository;
@@ -58,6 +59,9 @@ public class ScheduleExecutorService {
 
     @Autowired
     private DatasourceService datasourceService;
+
+    @Autowired
+    private TaskExecutionContentService taskExecutionContentService;
 
     private Scheduler scheduler;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -162,7 +166,7 @@ public class ScheduleExecutorService {
                 String.format("工作流执行开始 - 实例ID: %d, 工作流名称: %s, 时间: %s",
                     instance.getId(), processDefinition.getName(), LocalDateTime.now().format(DATE_FORMATTER)));
 
-            executeTasks(instance.getId(), processDefinition.getDefinitionJson());
+            executeTasks(null, processDefinitionId, instance.getId(), processDefinition.getDefinitionJson());
 
         } catch (Exception e) {
             log.error("执行工作流失败: processDefinitionId={}, error={}", processDefinitionId, e.getMessage(), e);
@@ -190,7 +194,7 @@ public class ScheduleExecutorService {
                 String.format("[调度触发] 工作流执行开始 - 调度ID: %d, 实例ID: %d, 工作流名称: %s, 时间: %s",
                     scheduleId, instance.getId(), processDefinition.getName(), LocalDateTime.now().format(DATE_FORMATTER)));
 
-            executeTasks(scheduleId, instance.getId(), processDefinition.getDefinitionJson());
+            executeTasks(scheduleId, processDefinitionId, instance.getId(), processDefinition.getDefinitionJson());
 
         } catch (Exception e) {
             log.error("执行工作流失败: processDefinitionId={}, error={}", processDefinitionId, e.getMessage(), e);
@@ -199,7 +203,7 @@ public class ScheduleExecutorService {
         }
     }
 
-    private void executeTasks(Long scheduleId, Long processInstanceId, String definitionJson) {
+    private void executeTasks(Long scheduleId, Long processDefinitionId, Long processInstanceId, String definitionJson) {
         boolean allSuccess = true;
         try {
             JsonNode rootNode = objectMapper.readTree(definitionJson);
@@ -208,7 +212,7 @@ public class ScheduleExecutorService {
             if (nodesNode != null && nodesNode.isArray()) {
                 for (JsonNode node : nodesNode) {
                     try {
-                        executeTask(scheduleId, processInstanceId, node);
+                        executeTask(scheduleId, processDefinitionId, processInstanceId, node);
                     } catch (Exception e) {
                         allSuccess = false;
                         log.error("执行单个任务失败: {}", e.getMessage());
@@ -218,7 +222,7 @@ public class ScheduleExecutorService {
         } catch (Exception e) {
             allSuccess = false;
             log.error("解析工作流定义失败: {}", e.getMessage());
-            scheduleLogService.error(scheduleId, processInstanceId,
+            scheduleLogService.error(scheduleId, processDefinitionId,
                 String.format("[工作流执行失败] 工作流实例ID: %d, 解析工作流定义失败: %s",
                     processInstanceId, e.getMessage()));
         } finally {
@@ -226,7 +230,7 @@ public class ScheduleExecutorService {
                 String endState = allSuccess ? "SUCCESS" : "FAILURE";
                 processInstanceService.endProcess(processInstanceId, endState);
 
-                scheduleLogService.info(scheduleId, processInstanceId,
+                scheduleLogService.info(scheduleId, processDefinitionId,
                     String.format("[工作流执行完成] 工作流实例ID: %d, 状态: %s, 时间: %s",
                         processInstanceId, endState, LocalDateTime.now().format(DATE_FORMATTER)));
 
@@ -238,10 +242,10 @@ public class ScheduleExecutorService {
     }
 
     private void executeTasks(Long processInstanceId, String definitionJson) {
-        executeTasks(null, processInstanceId, definitionJson);
+        executeTasks(null, null, processInstanceId, definitionJson);
     }
 
-    private void executeTask(Long scheduleId, Long processInstanceId, JsonNode node) {
+    private void executeTask(Long scheduleId, Long processDefinitionId, Long processInstanceId, JsonNode node) {
         try {
             String taskType = node.has("taskType") ? node.get("taskType").asText() : "SHELL";
             String script = node.has("script") ? node.get("script").asText() : "";
@@ -252,9 +256,12 @@ public class ScheduleExecutorService {
             Map<String, String> envVariables = loadEnvVariables(node);
             String processedScript = replaceEnvVariables(script, envVariables);
 
-            scheduleLogService.info(scheduleId, processInstanceId,
+            scheduleLogService.info(scheduleId, processDefinitionId, processInstanceId, taskNodeId, taskName,
                 String.format("[任务执行开始] 工作流实例ID: %d, 任务节点ID: %s, 任务名称: %s, 任务类型: %s, 时间: %s",
                     processInstanceId, taskNodeId, taskName, taskType, LocalDateTime.now().format(DATE_FORMATTER)));
+
+            saveTaskExecutionContent(scheduleId, processInstanceId, taskNodeId, taskName, taskType, 
+                script, processedScript, serverId, node);
 
             boolean success;
             String output;
@@ -295,9 +302,9 @@ public class ScheduleExecutorService {
                     output.length() > 500 ? output.substring(0, 500) + "\n...(结果已截断)" : output);
 
                 if (success) {
-                    scheduleLogService.info(scheduleId, processInstanceId, logMessage);
+                    scheduleLogService.info(scheduleId, processDefinitionId, processInstanceId, taskNodeId, taskName, logMessage);
                 } else {
-                    scheduleLogService.error(scheduleId, processInstanceId, logMessage);
+                    scheduleLogService.error(scheduleId, processDefinitionId, processInstanceId, taskNodeId, taskName, logMessage);
                 }
 
                 saveTaskLog(processInstanceId, taskNodeId, taskName, taskType,
@@ -334,9 +341,9 @@ public class ScheduleExecutorService {
                         output != null && output.length() > 200 ? output.substring(0, 200) + "..." : (output != null ? output : "无"));
 
                     if (success) {
-                        scheduleLogService.info(scheduleId, processInstanceId, logMessage);
+                        scheduleLogService.info(scheduleId, processDefinitionId, processInstanceId, taskNodeId, taskName, logMessage);
                     } else {
-                        scheduleLogService.error(scheduleId, processInstanceId,
+                        scheduleLogService.error(scheduleId, processDefinitionId, processInstanceId, taskNodeId, taskName,
                             logMessage + (error != null ? ", 错误: " + error : ""));
                     }
 
@@ -344,7 +351,7 @@ public class ScheduleExecutorService {
                             server.getId(), server.getHostname(), success, output, error);
                 } else {
                     log.warn("没有可用的服务器节点来执行任务");
-                    scheduleLogService.warn(scheduleId, processInstanceId,
+                    scheduleLogService.warn(scheduleId, processDefinitionId, processInstanceId, taskNodeId, taskName,
                         String.format("[任务执行异常] 工作流实例ID: %d, 任务名称: %s, 没有可用的服务器节点来执行任务",
                             processInstanceId, taskName));
                 }
@@ -352,9 +359,11 @@ public class ScheduleExecutorService {
 
         } catch (Exception e) {
             log.error("执行任务失败: {}", e.getMessage());
-            scheduleLogService.error(scheduleId, processInstanceId,
+            String taskName = node.has("name") ? node.get("name").asText() : "Unknown";
+            String taskNodeId = node.has("id") ? node.get("id").asText() : "Unknown";
+            scheduleLogService.error(scheduleId, processDefinitionId, processInstanceId, taskNodeId, taskName,
                 String.format("[任务执行异常] 工作流实例ID: %d, 任务名称: %s, 错误: %s",
-                    processInstanceId, node.has("name") ? node.get("name").asText() : "Unknown", e.getMessage()));
+                    processInstanceId, taskName, e.getMessage()));
         }
     }
 
@@ -398,7 +407,7 @@ public class ScheduleExecutorService {
     }
 
     private void executeTask(Long processInstanceId, JsonNode node) {
-        executeTask(null, processInstanceId, node);
+        executeTask(null, null, processInstanceId, node);
     }
 
     private void saveTaskLog(Long processInstanceId, String taskNodeId, String taskName,
@@ -422,6 +431,67 @@ public class ScheduleExecutorService {
                     processInstanceId, taskNodeId, success);
         } catch (Exception e) {
             log.error("保存任务执行日志失败: {}", e.getMessage());
+        }
+    }
+
+    private void saveTaskExecutionContent(Long scheduleId, Long processInstanceId, String taskNodeId, 
+                                         String taskName, String taskType, String originalContent, 
+                                         String resolvedContent, Long serverId, JsonNode node) {
+        try {
+            TaskExecutionContent content = new TaskExecutionContent();
+            content.setProcessInstanceId(processInstanceId);
+            content.setTaskNodeId(taskNodeId);
+            content.setTaskName(taskName);
+            content.setTaskType(taskType);
+
+            if ("SQL".equalsIgnoreCase(taskType)) {
+                content.setContentType("SQL");
+                content.setOriginalContent(originalContent);
+                content.setResolvedContent(resolvedContent);
+                content.setDatasourceId(node.has("datasourceId") && !node.get("datasourceId").isNull() ? node.get("datasourceId").asLong() : null);
+            } else if ("HTTP".equalsIgnoreCase(taskType)) {
+                content.setContentType("HTTP");
+                content.setHttpUrl(node.has("httpUrl") ? node.get("httpUrl").asText() : null);
+                content.setHttpMethod(node.has("httpMethod") ? node.get("httpMethod").asText() : "GET");
+                content.setHttpBody(node.has("httpBody") ? node.get("httpBody").asText() : null);
+            } else if ("SPARK".equalsIgnoreCase(taskType) || "FLINK".equalsIgnoreCase(taskType) || 
+                       "MAPREDUCE".equalsIgnoreCase(taskType) || "JAVA".equalsIgnoreCase(taskType)) {
+                content.setContentType("JAVA");
+                content.setMainClass(node.has("mainClass") ? node.get("mainClass").asText() : null);
+                content.setProgramArgs(node.has("programArgs") ? node.get("programArgs").asText() : null);
+                content.setJarFilePath(node.has("jarFilePath") ? node.get("jarFilePath").asText() : null);
+                
+                StringBuilder command = new StringBuilder("java ");
+                if (node.has("mainClass")) {
+                    command.append("-cp ").append(content.getJarFilePath()).append(" ").append(content.getMainClass());
+                }
+                if (node.has("programArgs")) {
+                    command.append(" ").append(content.getProgramArgs());
+                }
+                content.setJavaCommand(command.toString());
+            } else if (node.has("fileId") && !node.get("fileId").isNull()) {
+                content.setContentType("FILE");
+                content.setFilePath(node.has("filePath") ? node.get("filePath").asText() : null);
+                content.setFileName(node.has("fileName") ? node.get("fileName").asText() : null);
+                content.setOriginalContent(originalContent);
+                content.setResolvedContent(resolvedContent);
+            } else {
+                content.setContentType("SCRIPT");
+                content.setOriginalContent(originalContent);
+                content.setResolvedContent(resolvedContent);
+            }
+
+            if (serverId != null) {
+                ServerNode server = serverNodeRepository.findById(serverId).orElse(null);
+                if (server != null) {
+                    content.setServerId(server.getId());
+                    content.setServerIp(server.getHostname());
+                }
+            }
+
+            taskExecutionContentService.saveContent(content);
+        } catch (Exception e) {
+            log.error("保存任务执行内容失败: {}", e.getMessage());
         }
     }
 

@@ -92,11 +92,17 @@ public class DatasourceService {
     public String executeSql(Long datasourceId, String sql) {
         Datasource datasource = getDatasource(datasourceId);
         String url = buildJdbcUrl(datasource);
-
+        
+        String trimmedSql = sql.trim();
+        if (trimmedSql.isEmpty()) {
+            return "SQL执行失败: SQL语句为空";
+        }
+        
         try (java.sql.Connection conn = DriverManager.getConnection(url, datasource.getUsername(), datasource.getPassword())) {
-            String trimmedSql = sql.trim().toLowerCase();
-
-            if (trimmedSql.startsWith("select") || trimmedSql.startsWith("show") || trimmedSql.startsWith("describe")) {
+            String lowerSql = trimmedSql.toLowerCase();
+            
+            if (lowerSql.startsWith("select") || lowerSql.startsWith("show") || lowerSql.startsWith("describe") || 
+                lowerSql.startsWith("explain") || lowerSql.startsWith("call")) {
                 return executeQuery(conn, sql);
             } else {
                 return executeUpdate(conn, sql);

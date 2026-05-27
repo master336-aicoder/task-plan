@@ -295,6 +295,13 @@ export const serverApi = {
   updateEnvScript: (id: number, data: { envScript: string }) => request.put<ServerNode>(`/servers/${id}/env-script`, data)
 }
 
+export const probeApi = {
+  getServerStatus: () => request.get('/probe/server/status'),
+  getDatasourceStatus: () => request.get('/probe/datasource/status'),
+  triggerServerProbe: () => request.post('/probe/server/trigger'),
+  triggerDatasourceProbe: () => request.post('/probe/datasource/trigger')
+}
+
 export const fileApi = {
   list: (params?: { name?: string; projectId?: number; page?: number; size?: number }) => request.get('/files', { params }),
   listAll: () => request.get<FileResource[]>('/files/all'),
