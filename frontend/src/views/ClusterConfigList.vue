@@ -84,7 +84,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { clusterConfigApi, type ClusterConfig } from '@/api'
@@ -105,6 +105,21 @@ const form = ref<ClusterConfig>({
   type: 'FLINK',
   configJson: '',
   description: ''
+})
+
+const resetForm = () => {
+  form.value = {
+    name: '',
+    type: 'FLINK',
+    configJson: '',
+    description: ''
+  }
+}
+
+watch(showForm, (val) => {
+  if (!val) {
+    resetForm()
+  }
 })
 
 const formRules = {

@@ -1,7 +1,19 @@
 <template>
   <div class="execution-list">
     <div class="page-header">
-      <h2 class="text-xl font-bold mb-3">执行记录</h2>
+      <div class="flex justify-between items-center mb-3">
+        <h2 class="text-xl font-bold">执行记录</h2>
+        <div class="flex items-center gap-2">
+          <span class="text-sm text-gray-500">自动刷新:</span>
+          <el-select v-model="refreshInterval" placeholder="刷新间隔" style="width: 120px" @change="resetRefreshTimer">
+            <el-option label="5秒" :value="5" />
+            <el-option label="30秒" :value="30" />
+            <el-option label="1分钟" :value="60" />
+            <el-option label="2分钟" :value="120" />
+            <el-option label="5分钟" :value="300" />
+          </el-select>
+        </div>
+      </div>
       <el-form :inline="true" :model="queryForm" class="query-form">
         <el-form-item label="项目">
           <el-select v-model="queryForm.projectId" placeholder="选择项目" @change="onProjectChange" style="width: 180px">
@@ -83,7 +95,7 @@
       @current-change="loadExecutions"
     />
 
-    <el-dialog v-model="detailVisible" title="执行详情" width="800px">
+    <el-dialog v-model="detailVisible" title="执行详情" width="60%" height="80%">
       <div v-if="detailData" class="detail-content">
         <div class="detail-section">
           <h3>基本信息</h3>
@@ -111,9 +123,10 @@
               </template>
             </el-table-column>
             <el-table-column prop="serverIp" label="执行服务器" />
-            <el-table-column label="日志" min-width="200">
+            <el-table-column label="操作" min-width="200">
               <template #default="{ row }">
                 <el-button size="small" @click="showTaskLog(row)">查看日志</el-button>
+                <el-button size="small" type="primary" @click="showTaskContent(row)">任务详情</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -134,6 +147,48 @@
             <el-button @click="taskLogVisible = false">关闭</el-button>
           </template>
         </el-dialog>
+        
+        <el-dialog v-model="taskContentVisible" title="任务执行内容" width="80%" height="80%">
+          <div v-if="currentTaskContent" class="task-content-detail">
+            <div class="content-section">
+              <h4>任务名称: {{ currentTaskContent.taskName }}</h4>
+              <h4>任务类型: {{ currentTaskContent.taskType }}</h4>
+            </div>
+            <div class="content-section mt-4">
+              <h4>执行内容</h4>
+              <el-input
+                type="textarea"
+                :value="currentTaskContent.resolvedContent || '无执行内容'"
+                :rows="15"
+                readonly
+                class="w-full"
+              />
+            </div>
+            <div v-if="currentTaskContent.taskType === 'HTTP' && currentTaskContent.httpInfo" class="content-section mt-4">
+              <h4>HTTP请求信息</h4>
+              <el-input
+                type="textarea"
+                :value="currentTaskContent.httpInfo"
+                :rows="8"
+                readonly
+                class="w-full"
+              />
+            </div>
+            <div v-if="currentTaskContent.taskType === 'JAVA' && currentTaskContent.commandInfo" class="content-section mt-4">
+              <h4>Java命令信息</h4>
+              <el-input
+                type="textarea"
+                :value="currentTaskContent.commandInfo"
+                :rows="8"
+                readonly
+                class="w-full"
+              />
+            </div>
+          </div>
+          <template #footer>
+            <el-button @click="taskContentVisible = false">关闭</el-button>
+          </template>
+        </el-dialog>
       </div>
       <template #footer>
         <el-button @click="detailVisible = false">关闭</el-button>
@@ -143,7 +198,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { projectApi, workflowApi, executionApi, type Project, type ProcessDefinition } from '@/api'
 
@@ -156,6 +211,10 @@ const detailData = ref<any>(null)
 const batchLoading = ref(false)
 const taskLogVisible = ref(false)
 const currentTaskLog = ref<any>(null)
+const taskContentVisible = ref(false)
+const currentTaskContent = ref<any>(null)
+const refreshInterval = ref(5)
+let refreshTimer: number | null = null
 
 const queryForm = ref({
   projectId: undefined as number | undefined,
@@ -175,7 +234,8 @@ const stateLabels: Record<string, string> = {
   FAILURE: '失败',
   PENDING: '等待',
   STOP: '已停止',
-  TIMEOUT: '超时'
+  TIMEOUT: '超时',
+  PARTIAL_SUCCESS: '部分成功'
 }
 
 const stateTagTypes: Record<string, string> = {
@@ -184,7 +244,8 @@ const stateTagTypes: Record<string, string> = {
   FAILURE: 'danger',
   PENDING: 'info',
   STOP: 'default',
-  TIMEOUT: 'danger'
+  TIMEOUT: 'danger',
+  PARTIAL_SUCCESS: 'warning'
 }
 
 const getStateLabel = (state: string) => stateLabels[state] || state
@@ -303,6 +364,16 @@ const showTaskLog = (task: any) => {
   taskLogVisible.value = true
 }
 
+const showTaskContent = async (task: any) => {
+  try {
+    const res = await executionApi.getTaskContent(detailData.value.id, task.taskNodeId)
+    currentTaskContent.value = res.data || res
+    taskContentVisible.value = true
+  } catch (error) {
+    ElMessage.error('获取任务内容失败')
+  }
+}
+
 const stopExecution = async (execution: any) => {
   try {
     await executionApi.stop(execution.id)
@@ -398,10 +469,33 @@ const batchRetry = async () => {
   }
 }
 
+const startRefreshTimer = () => {
+  stopRefreshTimer()
+  refreshTimer = window.setInterval(() => {
+    loadExecutions()
+  }, refreshInterval.value * 1000)
+}
+
+const stopRefreshTimer = () => {
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
+    refreshTimer = null
+  }
+}
+
+const resetRefreshTimer = () => {
+  startRefreshTimer()
+}
+
 onMounted(async () => {
   await loadProjects()
   await loadWorkflows()
   loadExecutions()
+  startRefreshTimer()
+})
+
+onUnmounted(() => {
+  stopRefreshTimer()
 })
 </script>
 

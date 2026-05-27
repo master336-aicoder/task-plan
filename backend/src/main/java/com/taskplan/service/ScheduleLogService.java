@@ -76,12 +76,18 @@ public class ScheduleLogService {
                  scheduleId, processDefinitionId, processInstanceId, taskNodeId, taskName, message);
     }
 
-    public Page<ScheduleLog> listLogs(Long scheduleId, Long processDefinitionId, Pageable pageable) {
-        if (scheduleId != null) {
+    public Page<ScheduleLog> listLogs(Long scheduleId, Long processDefinitionId, Long processInstanceId, Pageable pageable) {
+        if (processInstanceId != null) {
+            return scheduleLogRepository.findByProcessInstanceId(processInstanceId, pageable);
+        } else if (scheduleId != null) {
             return scheduleLogRepository.findByScheduleId(scheduleId, pageable);
         } else if (processDefinitionId != null) {
             return scheduleLogRepository.findByProcessDefinitionId(processDefinitionId, pageable);
         }
         return scheduleLogRepository.findAll(pageable);
+    }
+
+    public Page<ScheduleLog> listLogsByLevel(String logLevel, Pageable pageable) {
+        return scheduleLogRepository.findByLogLevel(logLevel, pageable);
     }
 }

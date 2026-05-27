@@ -62,12 +62,36 @@ public class SysConfigController {
     @GetMapping("/paths")
     public Result<Map<String, Object>> getPaths() {
         Map<String, Object> paths = new HashMap<>();
-        paths.put("uploadPath", sysConfigService.getUploadPath());
-        paths.put("scheduleLogPath", sysConfigService.getScheduleLogPath());
-        paths.put("taskLogPath", sysConfigService.getTaskLogPath());
-        paths.put("uploadAllowedTypes", sysConfigService.getUploadAllowedTypes());
-        paths.put("uploadMaxSizeMB", sysConfigService.getUploadMaxSizeMB());
-        paths.put("uploadMaxChunks", sysConfigService.getUploadMaxChunks());
+        paths.put("uploadPath", sysConfigService.getConfigValue(SysConfigService.KEY_UPLOAD_PATH, "未配置"));
+        paths.put("scheduleLogPath", sysConfigService.getConfigValue(SysConfigService.KEY_SCHEDULE_LOG_PATH, "未配置"));
+        paths.put("taskLogPath", sysConfigService.getConfigValue(SysConfigService.KEY_TASK_LOG_PATH, "未配置"));
+        paths.put("taskInstancePath", sysConfigService.getConfigValue(SysConfigService.KEY_TASK_INSTANCE_PATH, "./instances"));
+        paths.put("uploadAllowedTypes", sysConfigService.getConfigValue(SysConfigService.KEY_UPLOAD_ALLOWED_TYPES, "未配置"));
+        paths.put("uploadMaxSizeMB", sysConfigService.getConfigValue(SysConfigService.KEY_UPLOAD_MAX_SIZE_MB, "100"));
+        paths.put("uploadMaxChunks", sysConfigService.getConfigValue(SysConfigService.KEY_UPLOAD_MAX_CHUNKS, "100"));
         return Result.success(paths);
+    }
+
+    @GetMapping("/mail")
+    public Result<Map<String, Object>> getMailConfig() {
+        Map<String, Object> mailConfig = new HashMap<>();
+        mailConfig.put("host", sysConfigService.getConfigValue("mail.host", ""));
+        mailConfig.put("port", sysConfigService.getConfigValue("mail.port", "587"));
+        mailConfig.put("username", sysConfigService.getConfigValue("mail.username", ""));
+        mailConfig.put("password", sysConfigService.getConfigValue("mail.password", ""));
+        mailConfig.put("from", sysConfigService.getConfigValue("mail.from", ""));
+        mailConfig.put("ssl", sysConfigService.getConfigValue("mail.ssl", "true"));
+        return Result.success(mailConfig);
+    }
+
+    @PutMapping("/mail")
+    public Result<Void> updateMailConfig(@RequestBody Map<String, String> request) {
+        sysConfigService.saveConfig("mail.host", request.get("host"), "邮件服务器地址");
+        sysConfigService.saveConfig("mail.port", request.get("port"), "邮件服务器端口");
+        sysConfigService.saveConfig("mail.username", request.get("username"), "邮件服务器用户名");
+        sysConfigService.saveConfig("mail.password", request.get("password"), "邮件服务器密码");
+        sysConfigService.saveConfig("mail.from", request.get("from"), "发件人邮箱地址");
+        sysConfigService.saveConfig("mail.ssl", request.get("ssl"), "是否启用SSL");
+        return Result.success();
     }
 }

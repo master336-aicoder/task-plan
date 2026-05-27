@@ -2,7 +2,9 @@
 
 参照 **Apache DolphinScheduler** 设计的企业级任务计划管理系统，支持可视化工作流编排、任务调度、远程执行、日志追踪等核心功能。
 
-## 项目概述
+---
+
+## 📋 项目概述
 
 ### 技术栈
 
@@ -56,30 +58,9 @@
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## 功能截图
+---
 
-### 系统登录页面
-![系统登录](images/login.png)
-
-### 工作流设计器
-![工作流设计器](images/workflow-design.png)
-
-### 调度管理
-![调度管理](images/schedule-list.png)
-
-### 文件管理
-![文件管理](images/file-manager.png)
-
-### 执行记录
-![执行记录](images/execution-list.png)
-
-### 任务执行日志
-![任务执行日志](images/task-logs.png)
-
-### 用户管理
-![用户管理](images/user-management.png)
-
-## 核心功能模块
+## ✨ 核心功能模块
 
 ### 1. 工作流设计模块
 - **可视化DAG工作流设计器**：拖拽式任务节点添加
@@ -124,11 +105,14 @@
 - **系统配置管理**：系统参数配置
 
 ### 7. 日志管理模块
-- **调度日志**：调度计划执行记录
+- **登录日志**：用户登录记录，支持导出、删除
+- **操作日志**：用户操作记录，支持导出、删除
+- **调度日志**：调度计划执行记录，支持实例ID查询
 - **任务执行日志**：任务执行输出日志
-- **日志检索**：按实例ID、任务类型、时间范围筛选
 
-## 项目结构
+---
+
+## 📁 项目结构
 
 ```
 task-plan/
@@ -157,13 +141,16 @@ task-plan/
 │   ├── design.md                         # 设计文档
 │   ├── api.md                            # API文档
 │   ├── usage.md                          # 使用说明
+│   ├── test-cases.md                     # 测试案例
 │   └── 开发计划.md                       # 开发计划
 ├── images/                               # 截图目录
 ├── backend/init-db.sql                   # 数据库初始化脚本
 └── README.md                             # 项目说明
 ```
 
-## 快速开始
+---
+
+## 🚀 快速开始
 
 ### 前置要求
 
@@ -175,12 +162,12 @@ task-plan/
 
 1. 创建数据库：
 ```sql
-CREATE DATABASE task_plan_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE task_plan CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
 2. 执行初始化脚本：
 ```bash
-mysql -u username -p task_plan_db < backend/init-db.sql
+mysql -u username -p task_plan < backend/init-db.sql
 ```
 
 ### 后端启动
@@ -207,7 +194,9 @@ npm run dev
 - 用户名：admin
 - 密码：123456
 
-## API接口说明
+---
+
+## 🔌 API接口说明
 
 完整的API文档请参考：[docs/api.md](docs/api.md)
 
@@ -226,66 +215,26 @@ npm run dev
 | `/api/process-definitions/{id}` | GET | 获取工作流详情 |
 | `/api/process-definitions/{id}` | PUT | 更新工作流 |
 | `/api/process-definitions/{id}` | DELETE | 删除工作流 |
-| `/api/process-definitions/{id}/release` | POST | 发布工作流 |
-| `/api/process-definitions/{id}/offline` | POST | 下线工作流 |
 
 ### 调度接口
 | 接口 | 方法 | 描述 |
 |------|------|------|
 | `/api/process-schedules` | GET | 获取调度列表 |
 | `/api/process-schedules` | POST | 创建调度 |
-| `/api/process-schedules/{id}` | PUT | 更新调度 |
 | `/api/process-schedules/{id}/enable` | POST | 启用调度 |
 | `/api/process-schedules/{id}/disable` | POST | 禁用调度 |
 
-### 文件管理接口
+### 日志接口
 | 接口 | 方法 | 描述 |
 |------|------|------|
-| `/api/files/directory` | GET | 获取目录结构 |
-| `/api/files/upload` | POST | 上传文件 |
-| `/api/files/{id}/content` | GET | 获取文件内容 |
-| `/api/files/{id}/content` | PUT | 更新文件内容 |
+| `/api/login-logs/export` | POST | 导出登录日志 |
+| `/api/operation-logs/export` | POST | 导出操作日志 |
+| `/api/schedule-logs` | GET | 查询调度日志 |
+| `/api/task-execution-logs` | GET | 查询任务执行日志 |
 
-### 系统管理接口
-| 接口 | 方法 | 描述 |
-|------|------|------|
-| `/api/users` | GET/POST | 用户管理 |
-| `/api/roles` | GET/POST | 角色管理 |
-| `/api/menus` | GET/POST | 菜单管理 |
-| `/api/env-variables` | GET/POST | 环境变量管理 |
+---
 
-## 核心实体关系
-
-```
-Project (项目)
-    │
-    ├── ProcessDefinition (工作流定义)
-    │       │
-    │       ├── ProcessDefinitionHistory (历史版本)
-    │       ├── TaskDefinition (任务定义)
-    │       │       └── TaskTypeConfig (任务类型配置)
-    │       │
-    │       ├── ProcessSchedule (调度计划)
-    │       │
-    │       └── ProcessInstance (工作流实例)
-    │               └── TaskInstance (任务实例)
-    │                       └── TaskExecutionLog (执行日志)
-    │
-    ├── FileResource (文件资源)
-    │
-    ├── Datasource (数据源)
-    │
-    └── EnvVariable (环境变量)
-
-SysUser (系统用户)
-    │
-    ├── SysUserRole (用户角色关联)
-    │       └── SysRole (系统角色)
-    │               └── SysRoleMenu (角色菜单关联)
-    │                       └── SysMenu (系统菜单)
-```
-
-## 安全特性
+## 🔒 安全特性
 
 - JWT无状态认证
 - 基于角色的访问控制(RBAC)
@@ -294,7 +243,21 @@ SysUser (系统用户)
 - SQL注入防护
 - XSS攻击防护
 
-## 开发指南
+---
+
+## 📖 文档目录
+
+| 文档 | 路径 | 说明 |
+|------|------|------|
+| API文档 | [docs/api.md](docs/api.md) | 完整的API接口说明 |
+| 设计文档 | [docs/design.md](docs/design.md) | 系统架构与设计说明 |
+| 使用说明 | [docs/usage.md](docs/usage.md) | 用户操作指南 |
+| 测试案例 | [docs/test-cases.md](docs/test-cases.md) | 测试用例文档 |
+| 需求文档 | [需求.md](需求.md) | 完整需求说明 |
+
+---
+
+## 📝 开发指南
 
 ### 代码规范
 
@@ -311,10 +274,19 @@ SysUser (系统用户)
 5. Code Review
 6. 合并到主分支
 
-## 许可证
+---
+
+## 📄 许可证
 
 MIT License
 
-## 联系方式
+---
+
+## 📧 联系方式
 
 如有问题或建议，请提交Issue。
+
+---
+
+**文档版本**: v1.2  
+**最后更新**: 2026-05-22

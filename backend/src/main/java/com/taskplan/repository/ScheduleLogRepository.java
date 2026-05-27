@@ -15,6 +15,8 @@ public interface ScheduleLogRepository extends JpaRepository<ScheduleLog, Long> 
     
     Page<ScheduleLog> findByProcessDefinitionId(Long processDefinitionId, Pageable pageable);
     
+    Page<ScheduleLog> findByProcessInstanceId(Long processInstanceId, Pageable pageable);
+    
     List<ScheduleLog> findByScheduleIdOrderByLogTimeDesc(Long scheduleId);
     
     List<ScheduleLog> findByLogTimeBetween(LocalDateTime startTime, LocalDateTime endTime);

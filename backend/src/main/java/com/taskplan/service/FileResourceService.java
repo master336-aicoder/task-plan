@@ -189,4 +189,67 @@ public class FileResourceService {
             throw new RuntimeException("写入文件内容失败: " + e.getMessage());
         }
     }
+
+    @Transactional
+    public FileResource createFile(String name, String content, Long parentId) {
+        if (name == null || name.trim().isEmpty()) {
+            throw new BusinessException("文件名不能为空");
+        }
+        
+        FileResource existing = fileResourceRepository.findByNameAndParentId(name, parentId);
+        if (existing != null) {
+            throw new BusinessException("文件已存在");
+        }
+        
+        try {
+            String basePath = System.getProperty("user.dir");
+            String relativePath = "data/files";
+            if (parentId != null) {
+                FileResource parentDir = getFile(parentId);
+                if (parentDir.getIsDirectory() != 1) {
+                    throw new BusinessException("父路径必须是目录");
+                }
+                relativePath = parentDir.getPath() != null ? parentDir.getPath() : "data/files";
+            }
+            
+            Path filePath = Paths.get(basePath, relativePath, name);
+            Path parentPath = filePath.getParent();
+            
+            if (!Files.exists(parentPath)) {
+                Files.createDirectories(parentPath);
+                log.info("创建目录: {}", parentPath.toAbsolutePath());
+            }
+            
+            try (BufferedWriter writer = Files.newBufferedWriter(filePath, StandardCharsets.UTF_8)) {
+                if (content != null) {
+                    writer.write(content);
+                }
+            }
+            
+            FileResource fileResource = new FileResource();
+            fileResource.setName(name);
+            fileResource.setPath(filePath.toAbsolutePath().toString());
+            fileResource.setSize(content != null ? (long) content.getBytes().length : 0L);
+            fileResource.setParentId(parentId);
+            fileResource.setIsDirectory(0);
+            
+            String fileName = name.toLowerCase();
+            String fileType = "OTHER";
+            if (fileName.endsWith(".sh") || fileName.endsWith(".py") || fileName.endsWith(".pl")) {
+                fileType = "SCRIPT";
+            } else if (fileName.endsWith(".jar")) {
+                fileType = "JAR";
+            } else if (fileName.endsWith(".sql")) {
+                fileType = "DATA";
+            }
+            fileResource.setType(fileType);
+            
+            FileResource savedFile = fileResourceRepository.save(fileResource);
+            log.info("文件创建成功: ID={}, path={}", savedFile.getId(), filePath.toAbsolutePath());
+            return savedFile;
+        } catch (IOException e) {
+            log.error("创建文件失败", e);
+            throw new RuntimeException("创建文件失败: " + e.getMessage());
+        }
+    }
 }

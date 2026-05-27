@@ -32,4 +32,8 @@ public class TaskExecutionContentService {
         List<TaskExecutionContent> contents = taskExecutionContentRepository.findByProcessInstanceIdAndTaskNodeId(processInstanceId, taskNodeId);
         return contents.isEmpty() ? null : contents.get(0);
     }
+
+    public TaskExecutionContent findById(Long id) {
+        return taskExecutionContentRepository.findById(id).orElse(null);
+    }
 }

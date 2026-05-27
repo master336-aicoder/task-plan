@@ -102,7 +102,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
@@ -129,6 +129,25 @@ const form = ref<Datasource>({
   username: '',
   password: '',
   params: ''
+})
+
+const resetForm = () => {
+  form.value = {
+    name: '',
+    type: 'MYSQL',
+    host: '',
+    port: 3306,
+    databaseName: '',
+    username: '',
+    password: '',
+    params: ''
+  }
+}
+
+watch(showForm, (val) => {
+  if (!val) {
+    resetForm()
+  }
 })
 
 const formRules = {

@@ -105,7 +105,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { serverApi, type ServerNode } from '@/api'
@@ -134,6 +134,23 @@ const form = ref<ServerNode>({
 
 const currentServerId = ref<number | null>(null)
 const currentScript = ref('')
+
+const resetForm = () => {
+  form.value = {
+    name: '',
+    hostname: '',
+    port: 22,
+    username: '',
+    password: '',
+    groupName: ''
+  }
+}
+
+watch(showForm, (val) => {
+  if (!val) {
+    resetForm()
+  }
+})
 
 const editEnvScript = (server: ServerNode) => {
   currentServerId.value = server.id

@@ -130,4 +130,55 @@ public class SshService {
             return false;
         }
     }
+
+    public Map<String, Double> getServerMetrics(ServerNode server) {
+        Map<String, Double> metrics = new HashMap<>();
+        
+        try {
+            Map<String, Object> result = executeCommand(server, getMetricsCommand());
+            if ((Boolean) result.get("success")) {
+                String output = (String) result.get("output");
+                parseMetrics(output, metrics);
+            }
+        } catch (Exception e) {
+            log.error("获取服务器指标失败: {}", e.getMessage());
+        }
+        
+        return metrics;
+    }
+
+    private String getMetricsCommand() {
+        return "echo \"CPU_USAGE:$(top -bn1 | grep 'Cpu(s)' | sed 's/.*, *\\([0-9.]*\\)%* id.*/\\1/' | awk '{print 100 - $1}')\"; " +
+               "echo \"MEM_USAGE:$(free | grep Mem | awk '{print $3/$2 * 100}')\"; " +
+               "echo \"DISK_USAGE:$(df -h / | grep / | awk '{print $5}' | sed 's/%//')\"";
+    }
+
+    private void parseMetrics(String output, Map<String, Double> metrics) {
+        if (output == null || output.isEmpty()) {
+            return;
+        }
+        
+        String[] lines = output.trim().split("\n");
+        for (String line : lines) {
+            if (line.startsWith("CPU_USAGE:")) {
+                try {
+                    metrics.put("cpuUsage", Double.parseDouble(line.substring(9).trim()));
+                } catch (NumberFormatException e) {
+                    log.warn("解析CPU使用率失败: {}", line);
+                }
+            } else if (line.startsWith("MEM_USAGE:")) {
+                try {
+                    metrics.put("memoryUsage", Double.parseDouble(line.substring(10).trim()));
+                } catch (NumberFormatException e) {
+                    log.warn("解析内存使用率失败: {}", line);
+                }
+            } else if (line.startsWith("DISK_USAGE:")) {
+                try {
+                    metrics.put("diskUsage", Double.parseDouble(line.substring(11).trim()));
+                } catch (NumberFormatException e) {
+                    log.warn("解析磁盘使用率失败: {}", line);
+                }
+            }
+        }
+    }
 }

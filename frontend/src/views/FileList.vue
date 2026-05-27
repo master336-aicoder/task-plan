@@ -3,6 +3,9 @@
     <div class="page-header">
       <h2>文件管理</h2>
       <div class="header-actions">
+        <el-button type="primary" @click="showCreateFileDialog = true">
+          <el-icon><Plus /></el-icon>新建文件
+        </el-button>
         <el-button type="primary" @click="showCreateDirDialog = true">
           <el-icon><Plus /></el-icon>新建目录
         </el-button>
@@ -99,6 +102,28 @@
         </template>
       </el-table-column>
     </el-table>
+
+    <el-dialog v-model="showCreateFileDialog" title="新建文件" width="600px" top="5vh">
+      <div style="display: flex; flex-direction: column; height: 350px;">
+        <el-form label-width="80px" style="margin-bottom: 12px;">
+          <el-form-item label="文件名">
+            <el-input v-model="fileForm.name" placeholder="请输入文件名，如 script.sql" />
+          </el-form-item>
+        </el-form>
+        <div style="flex: 1; overflow: hidden; border: 1px solid #e0e0e0; border-radius: 4px;">
+          <codemirror
+            v-model="fileForm.content"
+            :style="{ height: '100%' }"
+            :extensions="createFileExtensions"
+            placeholder="请输入文件内容"
+          />
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="showCreateFileDialog = false">取消</el-button>
+        <el-button type="primary" @click="createFile">确定</el-button>
+      </template>
+    </el-dialog>
 
     <el-dialog v-model="showCreateDirDialog" title="新建目录" width="400px">
       <el-form label-width="80px">
@@ -201,6 +226,7 @@ const total = ref(0)
 const uploadFileList = ref<any[]>([])
 const uploadRef = ref()
 const showCreateDirDialog = ref(false)
+const showCreateFileDialog = ref(false)
 const currentParentId = ref<number | null>(null)
 const directoryTree = ref<any[]>([])
 const breadcrumbPath = ref<any[]>([])
@@ -214,6 +240,15 @@ const editContent = ref('')
 
 const dirForm = ref({
   name: ''
+})
+
+const fileForm = ref({
+  name: '',
+  content: ''
+})
+
+const createFileExtensions = computed(() => {
+  return getLanguageExtension(fileForm.value.name || '')
 })
 
 const treeProps = {
@@ -333,6 +368,27 @@ const createDirectory = async () => {
     ElMessage.success('创建成功')
     showCreateDirDialog.value = false
     dirForm.value.name = ''
+    loadFiles()
+  } catch (error: any) {
+    ElMessage.error(error?.message || '创建失败')
+  }
+}
+
+const createFile = async () => {
+  if (!fileForm.value.name.trim()) {
+    ElMessage.warning('请输入文件名')
+    return
+  }
+  try {
+    await request.post('/files/file', {
+      name: fileForm.value.name,
+      content: fileForm.value.content,
+      parentId: currentParentId.value
+    })
+    ElMessage.success('创建成功')
+    showCreateFileDialog.value = false
+    fileForm.value.name = ''
+    fileForm.value.content = ''
     loadFiles()
   } catch (error: any) {
     ElMessage.error(error?.message || '创建失败')

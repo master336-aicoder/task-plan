@@ -164,4 +164,12 @@ public class FileResourceController {
         fileResourceService.updateFileContent(id, content);
         return Result.success();
     }
+
+    @PostMapping("/file")
+    public Result<FileResource> createFile(@RequestBody Map<String, Object> request) {
+        String name = (String) request.get("name");
+        String content = (String) request.get("content");
+        Long parentId = request.get("parentId") != null ? Long.parseLong(request.get("parentId").toString()) : null;
+        return Result.success(fileResourceService.createFile(name, content, parentId));
+    }
 }

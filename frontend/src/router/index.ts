@@ -20,6 +20,8 @@ import MenuList from '@/views/MenuList.vue'
 import SysConfigList from '@/views/SysConfigList.vue'
 import ScheduleLogList from '@/views/ScheduleLogList.vue'
 import TaskExecutionLogList from '@/views/TaskExecutionLogList.vue'
+import LoginLogList from '@/views/LoginLogList.vue'
+import OperationLogList from '@/views/OperationLogList.vue'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -54,7 +56,9 @@ const routes: RouteRecordRaw[] = [
       { path: '/system/menus', component: MenuList, name: 'MenuList' },
       { path: '/system/config', component: SysConfigList, name: 'SysConfigList' },
       { path: '/logs/schedule', component: ScheduleLogList, name: 'ScheduleLogList' },
-      { path: '/logs/task-execution', component: TaskExecutionLogList, name: 'TaskExecutionLogList' }
+      { path: '/logs/task-execution', component: TaskExecutionLogList, name: 'TaskExecutionLogList' },
+      { path: '/system/login-logs', component: LoginLogList, name: 'LoginLogList' },
+      { path: '/system/operation-logs', component: OperationLogList, name: 'OperationLogList' }
       ]
     }
   ]

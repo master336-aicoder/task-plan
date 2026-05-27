@@ -1,5 +1,6 @@
 package com.taskplan.service;
 
+import com.taskplan.config.FileConfigProperties;
 import com.taskplan.entity.SysConfig;
 import com.taskplan.exception.BusinessException;
 import com.taskplan.repository.SysConfigRepository;
@@ -8,6 +9,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,10 +21,14 @@ public class SysConfigService {
 
     @Autowired
     private SysConfigRepository sysConfigRepository;
+    
+    @Autowired
+    private FileConfigProperties fileConfigProperties;
 
     public static final String KEY_UPLOAD_PATH = "upload.path";
     public static final String KEY_SCHEDULE_LOG_PATH = "schedule.log.path";
     public static final String KEY_TASK_LOG_PATH = "task.log.path";
+    public static final String KEY_TASK_INSTANCE_PATH = "task.instance.path";
     public static final String KEY_UPLOAD_ALLOWED_TYPES = "upload.allowedTypes";
     public static final String KEY_UPLOAD_MAX_SIZE_MB = "upload.maxSizeMB";
     public static final String KEY_UPLOAD_MAX_CHUNKS = "upload.maxChunks";
@@ -85,25 +92,47 @@ public class SysConfigService {
     public String getUploadPath() {
         String path = getConfigValue(KEY_UPLOAD_PATH);
         if (path == null || path.trim().isEmpty()) {
-            path = System.getProperty("user.dir") + "/uploads";
+            path = "./uploads";
         }
-        return path;
+        return resolvePathWithRoot(path);
     }
 
     public String getScheduleLogPath() {
         String path = getConfigValue(KEY_SCHEDULE_LOG_PATH);
         if (path == null || path.trim().isEmpty()) {
-            path = System.getProperty("user.dir") + "/logs/schedule";
+            path = "./logs/schedule";
         }
-        return path;
+        return resolvePathWithRoot(path);
     }
 
     public String getTaskLogPath() {
         String path = getConfigValue(KEY_TASK_LOG_PATH);
         if (path == null || path.trim().isEmpty()) {
-            path = System.getProperty("user.dir") + "/logs/task";
+            path = "./logs/task";
         }
-        return path;
+        return resolvePathWithRoot(path);
+    }
+
+    public String getTaskInstancePath() {
+        String path = getConfigValue(KEY_TASK_INSTANCE_PATH);
+        if (path == null || path.trim().isEmpty()) {
+            path = "./instances";
+        }
+        return resolvePathWithRoot(path);
+    }
+    
+    private String resolvePathWithRoot(String relativePath) {
+        if (relativePath == null || relativePath.trim().isEmpty()) {
+            return fileConfigProperties.getRootpath();
+        }
+        
+        if (relativePath.startsWith("/") || relativePath.matches("^[A-Za-z]:.*")) {
+            return relativePath.replace("\\", "/");
+        }
+        
+        String rootPath = fileConfigProperties.getRootpath();
+        Path combinedPath = Paths.get(rootPath, relativePath);
+        return combinedPath.toString().replace("\\", "/");
     }
 
     public String getUploadAllowedTypes() {

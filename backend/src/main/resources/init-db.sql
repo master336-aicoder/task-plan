@@ -355,14 +355,16 @@ INSERT INTO sys_menu (id, name, path, icon, parent_id, sort_order, type, create_
 (302, '角色管理', '/system/roles', 'UserGroup', 5, 2, 0, NOW()),
 (303, '菜单管理', '/system/menus', 'Menu', 5, 3, 0, NOW()),
 (304, '系统配置', '/system/config', 'Settings', 5, 4, 0, NOW()),
-(305, '服务器管理', '/system/servers', 'Server', 5, 5, 0, NOW())
+(305, '服务器管理', '/system/servers', 'Server', 5, 5, 0, NOW()),
+(306, '登录日志', '/system/login-logs', 'FileSearch', 5, 6, 0, NOW()),
+(307, '操作日志', '/system/operation-logs', 'FileText', 5, 7, 0, NOW())
 ON DUPLICATE KEY UPDATE name=VALUES(name), path=VALUES(path);
 
 -- 角色菜单关联（管理员拥有所有菜单）
 INSERT INTO sys_role_menu (role_id, menu_id) VALUES
 (1, 1), (1, 2), (1, 3), (1, 4), (1, 5), (1, 6), (1, 7),
 (1, 101), (1, 102), (1, 201), (1, 202), (1, 203),
-(1, 301), (1, 302), (1, 303), (1, 304), (1, 305)
+(1, 301), (1, 302), (1, 303), (1, 304), (1, 305), (1, 306), (1, 307)
 ON DUPLICATE KEY UPDATE menu_id=VALUES(menu_id);
 
 -- 插入任务类型配置
@@ -386,8 +388,11 @@ INSERT INTO sys_config (config_key, config_value, description, create_time, upda
 ('upload.path', './uploads', '文件上传路径', NOW(), NOW()),
 ('upload.maxSize', '104857600', '最大文件大小(字节)', NOW(), NOW()),
 ('upload.allowedTypes', 'txt,sh,py,sql,java,xml,json,yaml,yml,md,html,css,js', '允许的文件类型', NOW(), NOW()),
-('schedule.logPath', './logs/scheduler', '调度日志路径', NOW(), NOW()),
-('task.logPath', './logs/tasks', '任务日志路径', NOW(), NOW())
+('upload.maxSizeMB', '100', '最大文件大小(MB)', NOW(), NOW()),
+('upload.maxChunks', '100', '最大分块数', NOW(), NOW()),
+('schedule.log.path', './logs/scheduler', '调度日志路径', NOW(), NOW()),
+('task.log.path', './logs/tasks', '任务日志路径', NOW(), NOW()),
+('task.instance.path', './instances', '任务实例保存路径', NOW(), NOW())
 ON DUPLICATE KEY UPDATE config_value=VALUES(config_value), description=VALUES(description);
 
 -- 插入默认项目

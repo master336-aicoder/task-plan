@@ -49,6 +49,9 @@ public class ScheduleExecutorService {
     private SshService sshService;
 
     @Autowired
+    private FileResourceService fileResourceService;
+
+    @Autowired
     private ScheduleLogService scheduleLogService;
 
     @Autowired
@@ -118,6 +121,16 @@ public class ScheduleExecutorService {
 
     public void addScheduleJob(ProcessSchedule schedule) throws SchedulerException {
         String jobKey = "process_schedule_" + schedule.getId();
+        JobKey jobKeyObj = new JobKey(jobKey);
+
+        boolean existed = scheduler.checkExists(jobKeyObj);
+        if (existed) {
+            boolean deleted = scheduler.deleteJob(jobKeyObj);
+            log.info("调度任务已存在，尝试删除: {}, 删除结果: {}", jobKey, deleted);
+            if (!deleted) {
+                log.warn("删除已存在的调度任务失败: {}", jobKey);
+            }
+        }
 
         JobDetail job = JobBuilder.newJob(ScheduleJob.class)
                 .withIdentity(jobKey)
@@ -130,8 +143,13 @@ public class ScheduleExecutorService {
                         .inTimeZone(java.util.TimeZone.getTimeZone(schedule.getTimezone())))
                 .build();
 
-        scheduler.scheduleJob(job, trigger);
-        log.info("调度任务已添加: {}", jobKey);
+        try {
+            scheduler.scheduleJob(job, trigger);
+            log.info("调度任务已添加: {}", jobKey);
+        } catch (SchedulerException e) {
+            log.error("添加调度任务失败: {}, 错误: {}", jobKey, e.getMessage());
+            throw e;
+        }
     }
 
     public void removeScheduleJob(Long scheduleId) throws SchedulerException {
@@ -149,8 +167,17 @@ public class ScheduleExecutorService {
             ProcessDefinition processDefinition = processDefinitionRepository.findById(processDefinitionId)
                     .orElseThrow(() -> new RuntimeException("工作流定义不存在"));
 
+            ProcessDefinition latestVersion = processDefinitionRepository
+                    .findTopByProjectIdAndNameOrderByVersionDesc(processDefinition.getProjectId(), processDefinition.getName());
+            
+            if (latestVersion != null && !latestVersion.getId().equals(processDefinitionId)) {
+                log.info("检测到工作流有新版本，使用最新版本执行: 旧版本ID={}, 新版本ID={}, 版本号={}", 
+                    processDefinitionId, latestVersion.getId(), latestVersion.getVersion());
+                processDefinition = latestVersion;
+            }
+
             if (!"ONLINE".equals(processDefinition.getReleaseState())) {
-                log.warn("工作流未上线，跳过执行: id={}", processDefinitionId);
+                log.warn("工作流未上线，跳过执行: id={}", processDefinition.getId());
                 return;
             }
 
@@ -162,7 +189,7 @@ public class ScheduleExecutorService {
             }
             log.info("工作流实例创建成功: id={}, processName={}", instance.getId(), instance.getProcessName());
 
-            scheduleLogService.info(null, processDefinitionId,
+            scheduleLogService.info(null, processDefinitionId, instance.getId(), null, processDefinition.getName(),
                 String.format("工作流执行开始 - 实例ID: %d, 工作流名称: %s, 时间: %s",
                     instance.getId(), processDefinition.getName(), LocalDateTime.now().format(DATE_FORMATTER)));
 
@@ -180,9 +207,18 @@ public class ScheduleExecutorService {
             ProcessDefinition processDefinition = processDefinitionRepository.findById(processDefinitionId)
                     .orElseThrow(() -> new RuntimeException("工作流定义不存在"));
 
+            ProcessDefinition latestVersion = processDefinitionRepository
+                    .findTopByProjectIdAndNameOrderByVersionDesc(processDefinition.getProjectId(), processDefinition.getName());
+            
+            if (latestVersion != null && !latestVersion.getId().equals(processDefinitionId)) {
+                log.info("[调度触发] 检测到工作流有新版本，使用最新版本执行: 旧版本ID={}, 新版本ID={}, 版本号={}", 
+                    processDefinitionId, latestVersion.getId(), latestVersion.getVersion());
+                processDefinition = latestVersion;
+            }
+
             if (!"ONLINE".equals(processDefinition.getReleaseState())) {
-                log.warn("工作流未上线，跳过执行: id={}", processDefinitionId);
-                scheduleLogService.warn(scheduleId, processDefinitionId,
+                log.warn("[调度触发] 工作流未上线，跳过执行: id={}", processDefinition.getId());
+                scheduleLogService.warn(scheduleId, processDefinition.getId(),
                     String.format("工作流未上线，跳过执行: %s", processDefinition.getName()));
                 return;
             }
@@ -190,11 +226,11 @@ public class ScheduleExecutorService {
             ProcessInstance instance = processInstanceService.startProcess(processDefinition, "SCHEDULER");
             log.info("工作流实例创建成功: id={}, processName={}", instance.getId(), instance.getProcessName());
 
-            scheduleLogService.info(scheduleId, processDefinitionId,
+            scheduleLogService.info(scheduleId, processDefinition.getId(), instance.getId(), null, processDefinition.getName(),
                 String.format("[调度触发] 工作流执行开始 - 调度ID: %d, 实例ID: %d, 工作流名称: %s, 时间: %s",
                     scheduleId, instance.getId(), processDefinition.getName(), LocalDateTime.now().format(DATE_FORMATTER)));
 
-            executeTasks(scheduleId, processDefinitionId, instance.getId(), processDefinition.getDefinitionJson());
+            executeTasks(scheduleId, processDefinition.getId(), instance.getId(), processDefinition.getDefinitionJson());
 
         } catch (Exception e) {
             log.error("执行工作流失败: processDefinitionId={}, error={}", processDefinitionId, e.getMessage(), e);
@@ -252,6 +288,15 @@ public class ScheduleExecutorService {
             String taskName = node.has("name") ? node.get("name").asText() : "Unknown";
             String taskNodeId = node.has("id") ? node.get("id").asText() : "Unknown";
             Long serverId = node.has("serverId") && !node.get("serverId").isNull() ? node.get("serverId").asLong() : null;
+
+            if (node.has("fileId") && !node.get("fileId").isNull()) {
+                Long fileId = node.get("fileId").asLong();
+                try {
+                    script = fileResourceService.getFileContent(fileId);
+                } catch (Exception e) {
+                    log.warn("读取文件内容失败: fileId={}, error={}", fileId, e.getMessage());
+                }
+            }
 
             Map<String, String> envVariables = loadEnvVariables(node);
             String processedScript = replaceEnvVariables(script, envVariables);

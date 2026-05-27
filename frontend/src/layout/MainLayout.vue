@@ -90,7 +90,8 @@ const iconMap: Record<string, any> = {
   Setting,
   Tools,
   Document,
-  FileText: Document
+  FileText: Document,
+  FileSearch: Document
 }
 
 const getIcon = (iconName?: string) => {
@@ -203,9 +204,10 @@ onUnmounted(() => {
 
 .main-content {
   flex: 1;
-  display: flex;
-  flex-direction: column;
+  display: grid !important;
+  grid-template-rows: auto 1fr;
   background: #f3f3f4;
+  overflow: hidden;
 }
 
 .top-header {
@@ -233,6 +235,9 @@ onUnmounted(() => {
   flex: 1;
   padding: 16px;
   overflow: auto;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .fade-enter-active,

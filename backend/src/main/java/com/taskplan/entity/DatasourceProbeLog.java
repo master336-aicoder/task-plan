@@ -41,6 +41,15 @@ public class DatasourceProbeLog {
     @Column(name = "error_message", length = 500)
     private String errorMessage;
 
+    @Column(name = "db_type", length = 50)
+    private String dbType;
+
+    @Column(name = "db_version", length = 100)
+    private String dbVersion;
+
+    @Column(name = "db_current_time")
+    private LocalDateTime dbCurrentTime;
+
     @Column(name = "create_time")
     private LocalDateTime createTime;
 

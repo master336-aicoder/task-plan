@@ -296,13 +296,15 @@
             </el-select>
           </el-form-item>
           <el-form-item v-if="availableEnvVariables.length > 0" label="可用环境变量">
-            <div class="env-variable-list">
-              <div v-for="item in availableEnvVariables" :key="item.name" class="env-variable-item">
-                <span class="var-name">${{ item.name }}</span>
-                <span class="var-value">{{ item.value }}</span>
-                <span v-if="item.description" class="var-desc">{{ item.description }}</span>
-              </div>
-            </div>
+            <el-table :data="availableEnvVariables" border size="small" style="width: 100%;">
+              <el-table-column prop="name" label="变量名" width="150">
+                <template #default="{ row }">
+                  <code class="text-primary">{{ row.name }}</code>
+                </template>
+              </el-table-column>
+              <el-table-column prop="value" label="变量值" min-width="200" />
+              <el-table-column prop="description" label="描述" min-width="150" />
+            </el-table>
           </el-form-item>
           <el-form-item label="变量替换说明">
             <div class="text-sm text-gray-600">
@@ -1008,10 +1010,38 @@ const handleDrop = (event: DragEvent) => {
   ElMessage.success('任务已添加到画布')
 }
 
+const getFullFilePath = (fileId: number): string => {
+  const file = files.value.find(f => f.id === fileId)
+  if (!file) return ''
+  
+  const pathParts: string[] = [file.name || '']
+  let parentId = file.parentId
+  
+  while (parentId !== null && parentId !== undefined) {
+    const parent = files.value.find(f => f.id === parentId)
+    if (!parent) break
+    pathParts.unshift(parent.name || '')
+    parentId = parent.parentId
+  }
+  
+  return pathParts.join('/')
+}
+
 const openTaskDetail = (node: CanvasNode) => {
   detailNode.value = node
   Object.assign(detailForm, node)
   scriptSource.value = node.fileId ? 'file' : 'content'
+  if (node.taskType === 'SQL' && node.script) {
+    detailForm.sql = node.script
+  }
+  if (node.fileId) {
+    selectedFileId.value = node.fileId
+    selectedFileName.value = getFullFilePath(node.fileId)
+  } else {
+    selectedFileId.value = null
+    selectedFileName.value = ''
+  }
+  loadAvailableEnvVariables()
 }
 
 const closeDetail = () => {
@@ -1072,6 +1102,9 @@ const saveDetail = async () => {
 
   if (detailNode.value) {
     Object.assign(detailNode.value, detailForm)
+    if (detailForm.taskType === 'SQL') {
+      detailNode.value.script = detailForm.sql
+    }
     ElMessage.success('配置已保存')
   }
 }
@@ -1337,6 +1370,19 @@ const validateAndRelease = async () => {
 }
 
 const saveWorkflow = async (release: boolean) => {
+  nodes.value.forEach(node => {
+    if (node.taskType === 'SQL' && node.sql) {
+      node.script = node.sql
+    }
+    if (['SHELL', 'PYTHON', 'PERL'].includes(node.taskType) && node.fileId) {
+      const file = files.value.find(f => f.id === node.fileId)
+      if (file) {
+        node.filePath = file.path
+        node.fileName = file.name
+      }
+    }
+  })
+  
   const workflowData = {
     id: workflowId.value || undefined,
     name: workflowName.value,

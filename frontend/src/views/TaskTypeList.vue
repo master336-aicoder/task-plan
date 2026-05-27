@@ -92,7 +92,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { taskTypeApi, type TaskTypeConfig } from '@/api'
@@ -115,6 +115,23 @@ const form = ref<TaskTypeConfig>({
   defaultParams: '',
   envParams: '',
   description: ''
+})
+
+const resetForm = () => {
+  form.value = {
+    name: '',
+    taskType: 'PYTHON',
+    programPath: '',
+    defaultParams: '',
+    envParams: '',
+    description: ''
+  }
+}
+
+watch(showForm, (val) => {
+  if (!val) {
+    resetForm()
+  }
 })
 
 const formRules = {

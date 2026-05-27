@@ -159,7 +159,8 @@ export const instanceApi = {
   success: (id: number) => request.post<ProcessInstance>(`/process-instances/${id}/success`),
   fail: (id: number) => request.post<ProcessInstance>(`/process-instances/${id}/fail`),
   retry: (id: number) => request.post<ProcessInstance>(`/process-instances/${id}/retry`),
-  delete: (id: number) => request.delete(`/process-instances/${id}`)
+  delete: (id: number) => request.delete(`/process-instances/${id}`),
+  getTaskContent: (processInstanceId: number, taskNodeId: string) => request.get(`/task-execution-content/process/${processInstanceId}/task/${taskNodeId}`)
 }
 
 export const executionApi = instanceApi
@@ -302,6 +303,61 @@ export const probeApi = {
   triggerDatasourceProbe: () => request.post('/probe/datasource/trigger')
 }
 
+export const loginLogApi = {
+  list: (params: {
+    username?: string
+    loginResult?: string
+    clientIp?: string
+    startTime?: string
+    endTime?: string
+    page?: number
+    size?: number
+  }) => request.get('/login-logs', { params }),
+  export: (params: { ids: number[] }) => request.post('/login-logs/export', params, { responseType: 'blob' }),
+  batchDelete: (ids: number[]) => request.delete('/login-logs/batch', { data: ids }),
+  exportAll: (params: {
+    username?: string
+    loginResult?: string
+    startTime?: string
+    endTime?: string
+  }) => request.get('/login-logs/export-all', { params, responseType: 'blob' }),
+  deleteAll: (params: {
+    username?: string
+    loginResult?: string
+    startTime?: string
+    endTime?: string
+  }) => request.delete('/login-logs/all', { params })
+}
+
+export const operationLogApi = {
+  list: (params: {
+    username?: string
+    requestMethod?: string
+    requestUrl?: string
+    clientIp?: string
+    startTime?: string
+    endTime?: string
+    page?: number
+    size?: number
+  }) => request.get('/operation-logs', { params }),
+  export: (params: { ids: number[] }) => request.post('/operation-logs/export', params, { responseType: 'blob' }),
+  batchDelete: (ids: number[]) => request.delete('/operation-logs/batch', { data: ids }),
+  exportAll: (params: {
+    username?: string
+    requestMethod?: string
+    requestUrl?: string
+    startTime?: string
+    endTime?: string
+  }) => request.get('/operation-logs/export-all', { params, responseType: 'blob' }),
+  deleteAll: (params: {
+    username?: string
+    requestMethod?: string
+    requestUrl?: string
+    startTime?: string
+    endTime?: string
+  }) => request.delete('/operation-logs/all', { params })
+}
+
 export const fileApi = {
   list: (params?: { name?: string; projectId?: number; page?: number; size?: number }) => request.get('/files', { params }),
   listAll: () => request.get<FileResource[]>('/files/all'),
@@ -355,8 +411,14 @@ export interface EnvVariable {
 }
 
 export const scheduleLogApi = {
-  list: (params: { scheduleId?: number; processDefinitionId?: number; logLevel?: string; page?: number; size?: number }) => 
-    request.get('/schedule-logs', { params })
+  list: (params: { scheduleId?: number; processDefinitionId?: number; processInstanceId?: number; logLevel?: string; page?: number; size?: number }) => 
+    request.get('/schedule-logs', { params }),
+  export: (params: { ids: number[] }) => request.post('/schedule-logs/export', params, { responseType: 'blob' }),
+  batchDelete: (ids: number[]) => request.delete('/schedule-logs/batch', { data: ids }),
+  exportAll: (params: { scheduleId?: number; processDefinitionId?: number; processInstanceId?: number; logLevel?: string }) => 
+    request.get('/schedule-logs/export-all', { params, responseType: 'blob' }),
+  deleteAll: (params: { scheduleId?: number; processDefinitionId?: number; processInstanceId?: number; logLevel?: string }) => 
+    request.delete('/schedule-logs/all', { params })
 }
 
 export const envConfigGroupApi = {
@@ -497,5 +559,16 @@ export const taskExecutionLogApi = {
     size?: number
   }) => request.get('/task-execution-logs', { params }),
   get: (id: number) => request.get<TaskExecutionLog>(`/task-execution-logs/${id}`),
-  getByProcessInstance: (processInstanceId: number) => request.get<TaskExecutionLog[]>(`/task-execution-logs/process/${processInstanceId}`)
+  getByProcessInstance: (processInstanceId: number) => request.get<TaskExecutionLog[]>(`/task-execution-logs/process/${processInstanceId}`),
+  export: (params: { ids: number[] }) => request.post('/task-execution-logs/export', params, { responseType: 'blob' }),
+  batchDelete: (ids: number[]) => request.delete('/task-execution-logs/batch', { data: ids }),
+  exportAll: (params: { processInstanceId?: number; taskType?: string; status?: string; serverIp?: string }) => 
+    request.get('/task-execution-logs/export-all', { params, responseType: 'blob' }),
+  deleteAll: (params: { processInstanceId?: number; taskType?: string; status?: string; serverIp?: string }) => 
+    request.delete('/task-execution-logs/all', { params })
+}
+
+export const systemApi = {
+  getJvmInfo: () => request.get('/system/jvm-info'),
+  getEnvVariables: () => request.get('/system/env-variables')
 }

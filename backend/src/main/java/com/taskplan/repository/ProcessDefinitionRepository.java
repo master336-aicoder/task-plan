@@ -17,4 +17,6 @@ public interface ProcessDefinitionRepository extends JpaRepository<ProcessDefini
     List<ProcessDefinition> findByProjectIdAndReleaseState(Long projectId, String releaseState);
     boolean existsByProjectIdAndName(Long projectId, String name);
     ProcessDefinition findByProjectIdAndName(Long projectId, String name);
+    
+    ProcessDefinition findTopByProjectIdAndNameOrderByVersionDesc(Long projectId, String name);
 }

@@ -27,7 +27,7 @@ public class TaskExecutionContentController {
         List<TaskExecutionContent> contents = taskExecutionContentService.findByProcessInstanceId(processInstanceId);
         
         Map<String, Object> response = new HashMap<>();
-        response.put("code", 200);
+        response.put("code", 200000);
         response.put("msg", "success");
         response.put("data", contents);
         
@@ -39,7 +39,19 @@ public class TaskExecutionContentController {
         TaskExecutionContent content = taskExecutionContentService.findByProcessInstanceIdAndTaskNodeId(processInstanceId, taskNodeId);
         
         Map<String, Object> response = new HashMap<>();
-        response.put("code", 200);
+        response.put("code", 200000);
+        response.put("msg", "success");
+        response.put("data", content);
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<Map<String, Object>> getById(@PathVariable Long id) {
+        TaskExecutionContent content = taskExecutionContentService.findById(id);
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("code", 200000);
         response.put("msg", "success");
         response.put("data", content);
         

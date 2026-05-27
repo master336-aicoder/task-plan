@@ -129,6 +129,8 @@ public class DataInitializer implements CommandLineRunner {
         createMenu("角色管理", "system:role", "F", "/system/roles", "views/RoleList.vue", systemMenu.getId(), null, 2, "system:role");
         createMenu("菜单管理", "system:menu", "F", "/system/menus", "views/MenuList.vue", systemMenu.getId(), null, 3, "system:menu");
         createMenu("系统配置", "system:config", "F", "/system/config", "views/SysConfigList.vue", systemMenu.getId(), null, 4, "system:config");
+        createMenu("登录日志", "system:loginlogs", "F", "/system/login-logs", "views/LoginLogList.vue", systemMenu.getId(), null, 5, "system:loginlogs");
+        createMenu("操作日志", "system:operationlogs", "F", "/system/operation-logs", "views/OperationLogList.vue", systemMenu.getId(), null, 6, "system:operationlogs");
         createMenu("调度日志", "logs:schedule", "F", "/logs/schedule", "views/ScheduleLogList.vue", logsMenu.getId(), null, 1, "logs:schedule");
         createMenu("作业日志", "logs:task", "F", "/logs/task-execution", "views/TaskExecutionLogList.vue", logsMenu.getId(), null, 2, "logs:task");
 
@@ -275,7 +277,7 @@ public class DataInitializer implements CommandLineRunner {
 
         SysConfig allowedTypes = new SysConfig();
         allowedTypes.setConfigKey("upload.allowedTypes");
-        allowedTypes.setConfigValue("txt,doc,docx,xls,xlsx,ppt,pptx,pdf,jpg,jpeg,png,gif,bmp,zip,rar,7z,tgz,tar,sh,py,pl,jar");
+        allowedTypes.setConfigValue("txt,doc,docx,xls,xlsx,ppt,pptx,pdf,jpg,jpeg,png,gif,bmp,zip,rar,7z,tgz,tar,sh,py,pl,jar,sql");
         allowedTypes.setDescription("允许上传的文件类型");
         allowedTypes.setCreateTime(LocalDateTime.now());
         allowedTypes.setUpdateTime(LocalDateTime.now());
@@ -296,6 +298,62 @@ public class DataInitializer implements CommandLineRunner {
         maxChunks.setCreateTime(LocalDateTime.now());
         maxChunks.setUpdateTime(LocalDateTime.now());
         sysConfigRepository.save(maxChunks);
+
+        SysConfig taskInstancePath = new SysConfig();
+        taskInstancePath.setConfigKey("task.instance.path");
+        taskInstancePath.setConfigValue("./instances");
+        taskInstancePath.setDescription("任务实例保存路径");
+        taskInstancePath.setCreateTime(LocalDateTime.now());
+        taskInstancePath.setUpdateTime(LocalDateTime.now());
+        sysConfigRepository.save(taskInstancePath);
+
+        SysConfig mailHost = new SysConfig();
+        mailHost.setConfigKey("mail.host");
+        mailHost.setConfigValue("smtp.example.com");
+        mailHost.setDescription("邮件服务器地址");
+        mailHost.setCreateTime(LocalDateTime.now());
+        mailHost.setUpdateTime(LocalDateTime.now());
+        sysConfigRepository.save(mailHost);
+
+        SysConfig mailPort = new SysConfig();
+        mailPort.setConfigKey("mail.port");
+        mailPort.setConfigValue("587");
+        mailPort.setDescription("邮件服务器端口");
+        mailPort.setCreateTime(LocalDateTime.now());
+        mailPort.setUpdateTime(LocalDateTime.now());
+        sysConfigRepository.save(mailPort);
+
+        SysConfig mailUsername = new SysConfig();
+        mailUsername.setConfigKey("mail.username");
+        mailUsername.setConfigValue("");
+        mailUsername.setDescription("邮件服务器用户名");
+        mailUsername.setCreateTime(LocalDateTime.now());
+        mailUsername.setUpdateTime(LocalDateTime.now());
+        sysConfigRepository.save(mailUsername);
+
+        SysConfig mailPassword = new SysConfig();
+        mailPassword.setConfigKey("mail.password");
+        mailPassword.setConfigValue("");
+        mailPassword.setDescription("邮件服务器密码");
+        mailPassword.setCreateTime(LocalDateTime.now());
+        mailPassword.setUpdateTime(LocalDateTime.now());
+        sysConfigRepository.save(mailPassword);
+
+        SysConfig mailFrom = new SysConfig();
+        mailFrom.setConfigKey("mail.from");
+        mailFrom.setConfigValue("");
+        mailFrom.setDescription("发件人邮箱地址");
+        mailFrom.setCreateTime(LocalDateTime.now());
+        mailFrom.setUpdateTime(LocalDateTime.now());
+        sysConfigRepository.save(mailFrom);
+
+        SysConfig mailSsl = new SysConfig();
+        mailSsl.setConfigKey("mail.ssl");
+        mailSsl.setConfigValue("true");
+        mailSsl.setDescription("是否启用SSL");
+        mailSsl.setCreateTime(LocalDateTime.now());
+        mailSsl.setUpdateTime(LocalDateTime.now());
+        sysConfigRepository.save(mailSsl);
 
         log.info("System config initialization completed");
     }

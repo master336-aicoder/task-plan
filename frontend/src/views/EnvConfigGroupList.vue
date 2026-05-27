@@ -169,6 +169,12 @@ watch(showOwnerSelector, (val) => {
   }
 })
 
+watch(showCreateDialog, (val) => {
+  if (!val) {
+    resetForm()
+  }
+})
+
 const filteredGroups = computed(() => {
   if (!searchKeyword.value) return groups.value
   return groups.value.filter(g => 

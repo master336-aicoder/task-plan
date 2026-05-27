@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -18,6 +19,9 @@ public class ServerNodeService {
 
     @Autowired
     private ServerNodeRepository serverNodeRepository;
+
+    @Autowired
+    private SshService sshService;
 
     @Transactional
     public ServerNode createServer(ServerNode server) {
@@ -95,11 +99,25 @@ public class ServerNodeService {
     }
 
     public boolean testConnection(ServerNode server) {
-        try (java.net.Socket socket = new java.net.Socket()) {
-            socket.connect(new java.net.InetSocketAddress(server.getHostname(), server.getPort()), 5000);
-            return true;
+        try {
+            boolean sshSuccess = sshService.testSshConnection(server);
+            if (!sshSuccess) {
+                log.error("SSH连接失败: {}", server.getHostname());
+                return false;
+            }
+            
+            if (server.getEnvScript() != null && !server.getEnvScript().isEmpty()) {
+                Map<String, Object> result = sshService.executeCommand(server, server.getEnvScript());
+                if (!(Boolean) result.get("success")) {
+                    log.error("环境变量脚本执行失败: {}", result.get("error"));
+                    return false;
+                }
+            }
+            
+            Map<String, Object> testResult = sshService.executeCommand(server, "echo 'Connection test successful'");
+            return (Boolean) testResult.get("success");
         } catch (Exception e) {
-            log.error("Failed to connect to server: {}", e.getMessage());
+            log.error("测试连接失败: {}", e.getMessage());
             return false;
         }
     }

@@ -29,7 +29,7 @@ public class ProbeController {
         List<ServerProbeLog> probes = probeService.getLatestServerProbes();
         
         Map<String, Object> response = new HashMap<>();
-        response.put("code", 200);
+        response.put("code", 200000);
         response.put("msg", "success");
         response.put("data", probes);
         
@@ -41,7 +41,7 @@ public class ProbeController {
         List<DatasourceProbeLog> probes = probeService.getLatestDatasourceProbes();
         
         Map<String, Object> response = new HashMap<>();
-        response.put("code", 200);
+        response.put("code", 200000);
         response.put("msg", "success");
         response.put("data", probes);
         
@@ -53,7 +53,7 @@ public class ProbeController {
         probeService.probeAllServers();
         
         Map<String, Object> response = new HashMap<>();
-        response.put("code", 200);
+        response.put("code", 200000);
         response.put("msg", "服务器探活已触发");
         
         return ResponseEntity.ok(response);
@@ -64,7 +64,7 @@ public class ProbeController {
         probeService.probeAllDatasources();
         
         Map<String, Object> response = new HashMap<>();
-        response.put("code", 200);
+        response.put("code", 200000);
         response.put("msg", "数据源探活已触发");
         
         return ResponseEntity.ok(response);

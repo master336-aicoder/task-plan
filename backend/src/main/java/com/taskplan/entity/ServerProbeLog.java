@@ -35,6 +35,15 @@ public class ServerProbeLog {
     @Column(name = "response_time")
     private Long responseTime;
 
+    @Column(name = "cpu_usage")
+    private Double cpuUsage;
+
+    @Column(name = "memory_usage")
+    private Double memoryUsage;
+
+    @Column(name = "disk_usage")
+    private Double diskUsage;
+
     @Column(name = "error_message", length = 500)
     private String errorMessage;
 

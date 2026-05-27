@@ -209,9 +209,9 @@ const loadSchedules = async () => {
     const workflowMap = new Map()
     workflows.value.forEach(w => workflowMap.set(w.id, w.name))
     
-    schedules.value = data.map((s: ProcessSchedule) => ({
+    schedules.value = data.map((s: any) => ({
       ...s,
-      processDefinitionName: workflowMap.get(s.processDefinitionId) || '未知'
+      processDefinitionName: s.processDefinitionName || workflowMap.get(s.processDefinitionId) || '未知'
     }))
     total.value = resultData.total || 0
   } catch (error) {

@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.annotation.PostConstruct;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -88,7 +89,13 @@ public class ProbeService {
             probeLog.setResponseTime(responseTime);
             
             if (success) {
-                log.info("服务器探活成功: {} ({})", server.getName(), server.getHostname());
+                Map<String, Double> metrics = sshService.getServerMetrics(server);
+                probeLog.setCpuUsage(metrics.get("cpuUsage"));
+                probeLog.setMemoryUsage(metrics.get("memoryUsage"));
+                probeLog.setDiskUsage(metrics.get("diskUsage"));
+                log.info("服务器探活成功: {} ({}) - CPU: {}, MEM: {}, DISK: {}", 
+                    server.getName(), server.getHostname(), 
+                    probeLog.getCpuUsage(), probeLog.getMemoryUsage(), probeLog.getDiskUsage());
             } else {
                 probeLog.setErrorMessage("SSH连接失败");
                 log.warn("服务器探活失败: {} ({})", server.getName(), server.getHostname());
@@ -122,17 +129,21 @@ public class ProbeService {
         probeLog.setPort(datasource.getPort());
         probeLog.setUsername(datasource.getUsername());
         probeLog.setProbeTime(LocalDateTime.now());
+        probeLog.setDbType(datasource.getType());
 
         long startTime = System.currentTimeMillis();
         try {
-            boolean success = testDatasourceConnection(datasource);
+            Map<String, Object> result = testDatasourceConnection(datasource);
+            boolean success = (Boolean) result.get("success");
             long responseTime = System.currentTimeMillis() - startTime;
             
             probeLog.setProbeStatus(success ? "SUCCESS" : "FAILED");
             probeLog.setResponseTime(responseTime);
             
             if (success) {
-                log.info("数据源探活成功: {} ({})", datasource.getName(), datasource.getHost());
+                probeLog.setDbVersion((String) result.get("version"));
+                probeLog.setDbCurrentTime((LocalDateTime) result.get("currentTime"));
+                log.info("数据源探活成功: {} ({}) - 版本: {}", datasource.getName(), datasource.getHost(), probeLog.getDbVersion());
             } else {
                 probeLog.setErrorMessage("数据库连接失败");
                 log.warn("数据源探活失败: {} ({})", datasource.getName(), datasource.getHost());
@@ -147,13 +158,34 @@ public class ProbeService {
         datasourceProbeLogRepository.save(probeLog);
     }
 
-    private boolean testDatasourceConnection(Datasource datasource) {
+    private Map<String, Object> testDatasourceConnection(Datasource datasource) {
         String url = buildJdbcUrl(datasource);
+        Map<String, Object> result = new java.util.HashMap<>();
         try (java.sql.Connection conn = java.sql.DriverManager.getConnection(url, datasource.getUsername(), datasource.getPassword())) {
-            return conn.isValid(3);
+            if (conn.isValid(3)) {
+                result.put("success", true);
+                
+                java.sql.DatabaseMetaData metaData = conn.getMetaData();
+                result.put("version", metaData.getDatabaseProductName() + " " + metaData.getDatabaseProductVersion());
+                
+                try (java.sql.Statement stmt = conn.createStatement()) {
+                    java.sql.ResultSet rs = stmt.executeQuery("SELECT NOW()");
+                    if (rs.next()) {
+                        java.sql.Timestamp ts = rs.getTimestamp(1);
+                        if (ts != null) {
+                            result.put("currentTime", ts.toLocalDateTime());
+                        }
+                    }
+                } catch (Exception e) {
+                    result.put("currentTime", LocalDateTime.now());
+                }
+            } else {
+                result.put("success", false);
+            }
         } catch (Exception e) {
-            return false;
+            result.put("success", false);
         }
+        return result;
     }
 
     private String buildJdbcUrl(Datasource datasource) {
@@ -179,7 +211,7 @@ public class ProbeService {
     public List<ServerProbeLog> getLatestServerProbes() {
         List<ServerNode> servers = serverNodeRepository.findAll();
         return servers.stream()
-                .map(server -> serverProbeLogRepository.findLatestByServerId(server.getId()))
+                .map(server -> serverProbeLogRepository.findTopByServerIdOrderByProbeTimeDesc(server.getId()).orElse(null))
                 .filter(log -> log != null)
                 .collect(Collectors.toList());
     }
@@ -187,7 +219,7 @@ public class ProbeService {
     public List<DatasourceProbeLog> getLatestDatasourceProbes() {
         List<Datasource> datasources = datasourceRepository.findAll();
         return datasources.stream()
-                .map(datasource -> datasourceProbeLogRepository.findLatestByDatasourceId(datasource.getId()))
+                .map(datasource -> datasourceProbeLogRepository.findTopByDatasourceIdOrderByProbeTimeDesc(datasource.getId()).orElse(null))
                 .filter(log -> log != null)
                 .collect(Collectors.toList());
     }
