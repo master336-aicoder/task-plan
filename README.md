@@ -60,6 +60,103 @@
 
 ---
 
+## 📷 功能截图
+
+### 工作台仪表盘
+![工作台仪表盘](images/dashboard.png)
+- 展示系统概览、服务器状态、数据源状态
+- 快捷操作入口、最近执行记录
+- JVM资源使用状态监控
+
+### 工作流设计
+![工作流设计](images/workflow-design.png)
+- 可视化DAG工作流设计器，支持拖拽式任务节点添加
+- 节点间依赖关系连线配置
+- 双击节点打开编辑面板，支持多任务类型配置
+
+### 工作流管理
+![工作流管理](images/workflow.png)
+- 工作流列表展示与搜索
+- 版本管理，支持版本对比与回滚
+- 工作流创建、编辑、删除操作
+
+### 调度管理
+![调度管理](images/schedules.png)
+- Cron表达式调度配置
+- 图形化Cron编辑器，可视化配置调度时间
+- 调度状态控制（启用/禁用），支持立即执行
+
+### 执行管理
+![执行管理](images/executions.png)
+- 工作流实例状态监控
+- 任务节点执行情况追踪
+- 执行日志查看与详情展示
+
+### 任务类型配置
+![任务类型配置](images/task-types.png)
+- 支持多种任务类型：Shell、Python、Java、SQL、Spark、Flink、HTTP等
+- 任务类型参数配置管理
+
+### 数据源配置
+![数据源配置](images/datasources.png)
+- 支持MySQL、PostgreSQL、Oracle等多种数据库
+- 数据库连接测试验证
+- 显示数据库类型、版本、当前时间
+
+### 服务器管理
+![服务器管理](images/servers.png)
+- SSH服务器连接配置
+- 服务器状态监控
+- 远程执行脚本支持
+
+### 集群配置
+![集群配置](images/cluster-configs.png)
+- 集群节点管理
+- 分布式任务调度配置
+
+### 项目管理
+![项目管理](images/projects.png)
+- 项目创建与配置
+- 项目权限管理
+
+### 文件管理
+![文件管理](images/files.png)
+- 目录树展示
+- 文件上传、预览、在线编辑
+- 支持任意路径创建文件
+
+### 环境变量配置
+![环境变量配置](images/env-variables.png)
+- 多组配置值管理
+- 支持配置名称分组
+- 环境变量替换功能
+
+### 操作日志
+![操作日志](images/operation-logs.png)
+- 用户操作记录追踪
+- 支持按条件搜索、导出、删除
+- 记录HTTP Header中的User-Agent信息
+
+### 调度日志
+![调度日志](images/schedule-logs.png)
+- 调度计划执行记录
+- 支持实例ID查询条件
+- 导出与删除功能
+
+### 任务执行日志
+![任务执行日志](images/task-execution-logs.png)
+- 任务执行输出日志
+- 日志详情查看
+- 支持导出功能
+
+### 系统配置
+![系统配置](images/systemconfig.png)
+- 系统参数配置管理
+- 邮件服务器配置与测试发送
+- 文件上传类型配置
+
+---
+
 ## ✨ 核心功能模块
 
 ### 1. 工作流设计模块
@@ -142,9 +239,11 @@ task-plan/
 │   ├── api.md                            # API文档
 │   ├── usage.md                          # 使用说明
 │   ├── test-cases.md                     # 测试案例
-│   └── 开发计划.md                       # 开发计划
+│   ├── 开发计划.md                       # 开发计划
+│   └── sql/                              # SQL脚本目录
+│       ├── schema.sql                    # 数据库表结构脚本
+│       └── data.sql                      # 初始化数据脚本
 ├── images/                               # 截图目录
-├── backend/init-db.sql                   # 数据库初始化脚本
 └── README.md                             # 项目说明
 ```
 
@@ -160,15 +259,54 @@ task-plan/
 
 ### 数据库配置
 
+#### 方式一：使用SQL脚本初始化（推荐）
+
 1. 创建数据库：
 ```sql
 CREATE DATABASE task_plan CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-2. 执行初始化脚本：
+2. 执行表结构脚本：
 ```bash
-mysql -u username -p task_plan < backend/init-db.sql
+mysql -u username -p task_plan < docs/sql/schema.sql
 ```
+
+3. 执行初始化数据脚本：
+```bash
+mysql -u username -p task_plan < docs/sql/data.sql
+```
+
+#### 方式二：自动初始化
+
+启动后端服务时，系统会自动初始化数据库表结构和基础数据。
+
+**注意**：自动初始化仅在表不存在时执行，不会覆盖已有数据。
+
+### 数据库连接配置
+
+编辑 `backend/src/main/resources/application.yml`：
+
+```yaml
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/task_plan?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: your_username
+    password: your_password
+    driver-class-name: com.mysql.cj.jdbc.Driver
+```
+
+### 初始化内容说明
+
+| 初始化项 | 说明 |
+|----------|------|
+| **管理员账号** | admin / 123456 |
+| **系统角色** | ADMIN(系统管理员), USER(普通用户) |
+| **系统菜单** | 完整的菜单树结构 |
+| **系统配置** | 文件上传、日志路径、邮件配置等 |
+| **任务类型** | Shell、Python、Java、SQL、HTTP、Spark、Flink等 |
+| **集群配置** | 本地单机、YARN、Flink集群 |
+| **默认项目** | 系统默认项目 |
+| **环境变量组** | 默认配置组、开发环境、生产环境 |
 
 ### 后端启动
 
